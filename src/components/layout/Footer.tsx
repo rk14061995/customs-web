@@ -52,8 +52,8 @@ export default function Footer({ settings }: { settings: SettingsProp }) {
 
   return (
     <footer className="border-t border-border-subtle bg-surface">
-      <Container className="py-16">
-        <div className="grid grid-cols-1 gap-12 lg:grid-cols-[1.3fr_1fr_1fr_1fr]">
+      <Container className="py-12 sm:py-16">
+        <div className="grid grid-cols-1 gap-10 lg:grid-cols-[1.3fr_1fr_1fr_1fr] lg:gap-12">
           <div>
             <Link href="/" className="flex items-center gap-2.5">
               <span className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-br from-navy to-navy-dark text-lg font-bold text-white">
@@ -82,25 +82,27 @@ export default function Footer({ settings }: { settings: SettingsProp }) {
             </div>
           </div>
 
-          {linkGroups.map((group) => (
-            <div key={group.title}>
-              <h3 className="font-heading text-sm font-semibold text-foreground">
-                {group.title}
-              </h3>
-              <ul className="mt-4 space-y-3">
-                {group.links.map((link) => (
-                  <li key={link.href}>
-                    <Link
-                      href={link.href}
-                      className="text-sm text-foreground/60 transition-colors hover:text-orange"
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:contents">
+            {linkGroups.map((group) => (
+              <div key={group.title}>
+                <h3 className="font-heading text-sm font-semibold text-foreground">
+                  {group.title}
+                </h3>
+                <ul className="mt-4 space-y-3">
+                  {group.links.map((link) => (
+                    <li key={link.href}>
+                      <Link
+                        href={link.href}
+                        className="text-sm text-foreground/60 transition-colors hover:text-orange"
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
 
           <div>
             <h3 className="font-heading text-sm font-semibold text-foreground">Newsletter</h3>
@@ -112,7 +114,7 @@ export default function Footer({ settings }: { settings: SettingsProp }) {
                 type="email"
                 required
                 placeholder="Your email"
-                className="w-full rounded-full border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none placeholder:text-foreground/40 focus:border-navy"
+                className="w-full min-w-0 rounded-full border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none placeholder:text-foreground/40 focus:border-navy"
               />
               <button
                 type="submit"
@@ -139,11 +141,11 @@ export default function Footer({ settings }: { settings: SettingsProp }) {
           </div>
         </div>
 
-        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border-subtle pt-8 sm:flex-row">
+        <div className="mt-10 flex flex-col items-center gap-4 border-t border-border-subtle pt-8 text-center sm:mt-12 sm:flex-row sm:justify-between sm:text-left">
           <p className="text-sm text-foreground/50">
             © {new Date().getFullYear()} {settings.siteName}. All rights reserved.
           </p>
-          <div className="flex gap-6 text-sm text-foreground/50">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-foreground/50">
             <Link href="/privacy-policy" className="hover:text-orange">Privacy Policy</Link>
             <Link href="/terms-conditions" className="hover:text-orange">Terms & Conditions</Link>
           </div>
