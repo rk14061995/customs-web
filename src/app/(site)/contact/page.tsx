@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 const info = [
   { icon: MapPin, label: "Office Address", value: siteConfig.address },
-  { icon: Phone, label: "Phone", value: siteConfig.phone },
+  { icon: Phone, label: "Phone", value: `${siteConfig.phone} / ${siteConfig.alternatePhone}` },
   { icon: Mail, label: "Email", value: siteConfig.email },
   { icon: Clock, label: "Business Hours", value: siteConfig.hours },
 ];

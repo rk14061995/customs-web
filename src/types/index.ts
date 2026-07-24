@@ -57,6 +57,12 @@ export interface TrackingResult {
   destination: string;
   estimatedDelivery: string;
   events: TrackingEvent[];
+  /** Only present for shipments we manage ourselves; absent for external/universal lookups. */
+  serviceType?: string;
+  carrier?: string;
+  weight?: string;
+  dimensions?: string;
+  packages?: number;
 }
 
 export type QuoteFormData = {

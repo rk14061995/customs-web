@@ -8,6 +8,9 @@ import HomepageModel from "@/models/Homepage";
 import SettingsModel from "@/models/Settings";
 import QuoteModel from "@/models/Quote";
 import ContactModel from "@/models/Contact";
+import ShipmentModel from "@/models/Shipment";
+import PaymentModel from "@/models/Payment";
+import "@/models/Customer";
 import type { Service, BlogPost, Testimonial, TeamMember, FaqItem } from "@/types";
 
 function serialize<T>(doc: unknown): T {
@@ -78,6 +81,11 @@ export async function getAdminStats() {
     newContactCount,
     recentQuotes,
     recentContacts,
+    shipmentCount,
+    activeShipmentCount,
+    recentShipments,
+    paidAgg,
+    pendingAgg,
   ] = await Promise.all([
     QuoteModel.countDocuments(),
     ContactModel.countDocuments(),
@@ -88,6 +96,17 @@ export async function getAdminStats() {
     ContactModel.countDocuments({ status: "new" }),
     QuoteModel.find().sort({ createdAt: -1 }).limit(5).lean(),
     ContactModel.find().sort({ createdAt: -1 }).limit(5).lean(),
+    ShipmentModel.countDocuments(),
+    ShipmentModel.countDocuments({ status: { $nin: ["Delivered", "Cancelled"] } }),
+    ShipmentModel.find().sort({ createdAt: -1 }).limit(5).populate("customer", "name company").lean(),
+    PaymentModel.aggregate([
+      { $match: { status: "paid" } },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ]),
+    PaymentModel.aggregate([
+      { $match: { status: "pending" } },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ]),
   ]);
 
   return serialize<{
@@ -100,6 +119,11 @@ export async function getAdminStats() {
     newContactCount: number;
     recentQuotes: Array<Record<string, unknown>>;
     recentContacts: Array<Record<string, unknown>>;
+    shipmentCount: number;
+    activeShipmentCount: number;
+    recentShipments: Array<Record<string, unknown>>;
+    totalRevenue: number;
+    pendingRevenue: number;
   }>({
     quoteCount,
     contactCount,
@@ -110,6 +134,11 @@ export async function getAdminStats() {
     newContactCount,
     recentQuotes,
     recentContacts,
+    shipmentCount,
+    activeShipmentCount,
+    recentShipments,
+    totalRevenue: paidAgg[0]?.total ?? 0,
+    pendingRevenue: pendingAgg[0]?.total ?? 0,
   });
 }
 
@@ -120,6 +149,7 @@ export async function getSettings() {
     siteName: string;
     tagline: string;
     phone: string;
+    alternatePhone?: string;
     whatsapp: string;
     email: string;
     address: string;

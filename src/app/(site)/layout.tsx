@@ -18,6 +18,7 @@ export default async function SiteLayout({
     siteName: siteConfig.name,
     tagline: siteConfig.tagline,
     phone: siteConfig.phone,
+    alternatePhone: siteConfig.alternatePhone,
     whatsapp: siteConfig.whatsapp,
     email: siteConfig.email,
     address: siteConfig.address,

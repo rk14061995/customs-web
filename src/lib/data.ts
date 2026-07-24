@@ -12,10 +12,11 @@ export const siteConfig = {
   tagline: "Delivering Trust Across Borders",
   description:
     "Rana Forwarder is a premium global logistics and courier partner offering air freight, ocean freight, road transport, warehousing, and express delivery across 220+ countries.",
-  phone: "+1 (800) 555-0142",
-  whatsapp: "18005550142",
-  email: "support@ranaforwarder.com",
-  address: "48 Harbor Gate Business Park, Dockside Avenue, Metro City, 400001",
+  phone: "+91 98919 55255",
+  alternatePhone: "+91 82876 67403",
+  whatsapp: "919891955255",
+  email: "rana.forwarders@gmail.com",
+  address: "RZ 39C1/6, Raj Nagar 1, Palam, New Delhi 110045",
   hours: "Mon – Sat: 9:00 AM – 7:00 PM",
   social: {
     facebook: "https://facebook.com",

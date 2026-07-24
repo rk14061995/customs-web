@@ -4,6 +4,7 @@ export interface ISettings extends Document {
   siteName: string;
   tagline: string;
   phone: string;
+  alternatePhone?: string;
   whatsapp: string;
   email: string;
   address: string;
@@ -22,6 +23,7 @@ const SettingsSchema = new Schema<ISettings>(
     siteName: { type: String, required: true },
     tagline: { type: String, required: true },
     phone: { type: String, required: true },
+    alternatePhone: { type: String },
     whatsapp: { type: String, required: true },
     email: { type: String, required: true },
     address: { type: String, required: true },

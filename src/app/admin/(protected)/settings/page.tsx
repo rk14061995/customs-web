@@ -8,6 +8,7 @@ type SettingsData = {
   siteName: string;
   tagline: string;
   phone: string;
+  alternatePhone?: string;
   whatsapp: string;
   email: string;
   address: string;
@@ -22,6 +23,7 @@ const emptySettings: SettingsData = {
   siteName: "",
   tagline: "",
   phone: "",
+  alternatePhone: "",
   whatsapp: "",
   email: "",
   address: "",
@@ -75,6 +77,10 @@ export default function AdminSettingsPage() {
           <div>
             <label className="mb-1.5 block text-sm font-medium text-foreground">Phone</label>
             <input value={data.phone} onChange={(e) => setData({ ...data, phone: e.target.value })} className={inputClass} />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-foreground">Alternate Phone</label>
+            <input value={data.alternatePhone ?? ""} onChange={(e) => setData({ ...data, alternatePhone: e.target.value })} className={inputClass} />
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-foreground">WhatsApp Number</label>

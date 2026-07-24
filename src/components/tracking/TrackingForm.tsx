@@ -12,6 +12,8 @@ import {
   Circle,
   MapPin,
   Loader2,
+  Boxes,
+  Building2,
 } from "lucide-react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -119,6 +121,42 @@ export default function TrackingForm() {
                   </div>
                 </div>
               </div>
+
+              {(result.serviceType || result.carrier || result.weight) && (
+                <div className="grid grid-cols-1 gap-6 border-b border-border-subtle py-6 sm:grid-cols-3">
+                  {result.serviceType && (
+                    <div className="flex items-start gap-2">
+                      <PackageCheck className="mt-0.5 size-4 shrink-0 text-navy dark:text-white" />
+                      <div>
+                        <p className="text-xs text-foreground/50">Service Type</p>
+                        <p className="text-sm font-medium text-foreground">{result.serviceType}</p>
+                      </div>
+                    </div>
+                  )}
+                  {result.carrier && (
+                    <div className="flex items-start gap-2">
+                      <Building2 className="mt-0.5 size-4 shrink-0 text-orange" />
+                      <div>
+                        <p className="text-xs text-foreground/50">Carrier</p>
+                        <p className="text-sm font-medium text-foreground">{result.carrier}</p>
+                      </div>
+                    </div>
+                  )}
+                  {result.weight && (
+                    <div className="flex items-start gap-2">
+                      <Boxes className="mt-0.5 size-4 shrink-0 text-navy dark:text-white" />
+                      <div>
+                        <p className="text-xs text-foreground/50">Weight{result.packages ? " / Packages" : ""}</p>
+                        <p className="text-sm font-medium text-foreground">
+                          {result.weight}
+                          {result.dimensions ? ` · ${result.dimensions}` : ""}
+                          {result.packages ? ` · ${result.packages} pkg${result.packages > 1 ? "s" : ""}` : ""}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="pt-8">
                 <div className="relative">

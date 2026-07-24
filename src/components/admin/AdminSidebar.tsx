@@ -16,11 +16,18 @@ import {
   Search,
   LogOut,
   Truck,
+  CreditCard,
+  Contact2,
+  Ship,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
+  { label: "Shipments", href: "/admin/shipments", icon: Truck },
+  { label: "Payments", href: "/admin/payments", icon: CreditCard },
+  { label: "Customers", href: "/admin/customers", icon: Contact2 },
+  { label: "Carriers", href: "/admin/carriers", icon: Ship },
   { label: "Services", href: "/admin/services", icon: Package },
   { label: "Blogs", href: "/admin/blogs", icon: Newspaper },
   { label: "Testimonials", href: "/admin/testimonials", icon: QuoteIcon },

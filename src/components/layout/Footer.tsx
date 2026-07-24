@@ -37,6 +37,7 @@ const linkGroups = [
 type SettingsProp = {
   siteName: string;
   phone: string;
+  alternatePhone?: string;
   email: string;
   address: string;
   social: { facebook?: string; twitter?: string; linkedin?: string; instagram?: string };
@@ -132,6 +133,7 @@ export default function Footer({ settings }: { settings: SettingsProp }) {
               <li className="flex items-center gap-2">
                 <Phone className="size-4 shrink-0 text-orange" />
                 {settings.phone}
+                {settings.alternatePhone && ` / ${settings.alternatePhone}`}
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="size-4 shrink-0 text-orange" />
