@@ -41,6 +41,9 @@ export async function PUT(
   const { id } = await params;
   const body = await req.json();
   delete body.invoiceNumber;
+  delete body.paymentLinkId;
+  delete body.paymentLinkUrl;
+  delete body.paymentLinkStatus;
 
   try {
     const doc = await Payment.findByIdAndUpdate(id, body, {

@@ -27,6 +27,14 @@ export default async function dbConnect() {
     });
   }
 
-  cache.conn = await cache.promise;
+  try {
+    cache.conn = await cache.promise;
+  } catch (err) {
+    // Don't cache a failed connection attempt — otherwise every future
+    // request replays the same rejected promise even after the DB recovers.
+    cache.promise = null;
+    throw err;
+  }
+
   return cache.conn;
 }

@@ -28,6 +28,9 @@ export interface IPayment extends Document {
   paidAt?: string;
   dueDate?: string;
   notes?: string;
+  paymentLinkId?: string;
+  paymentLinkUrl?: string;
+  paymentLinkStatus?: string;
   createdAt: Date;
 }
 
@@ -42,6 +45,9 @@ const PaymentSchema = new Schema<IPayment>(
     paidAt: { type: String },
     dueDate: { type: String },
     notes: { type: String },
+    paymentLinkId: { type: String },
+    paymentLinkUrl: { type: String },
+    paymentLinkStatus: { type: String },
   },
   { timestamps: true }
 );

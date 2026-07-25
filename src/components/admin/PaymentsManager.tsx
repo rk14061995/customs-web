@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, X, Loader2, Wallet, Clock, AlertCircle } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Loader2, Wallet, Clock, AlertCircle, Send, RefreshCw, Copy } from "lucide-react";
 import Button from "@/components/ui/Button";
 import StatCard from "@/components/admin/StatCard";
 import { formatDate } from "@/lib/utils";
@@ -38,6 +38,9 @@ type Payment = {
   paidAt?: string;
   dueDate?: string;
   notes?: string;
+  paymentLinkId?: string;
+  paymentLinkUrl?: string;
+  paymentLinkStatus?: string;
   createdAt: string;
 };
 
@@ -62,6 +65,8 @@ export default function PaymentsManager() {
   const [formValues, setFormValues] = useState<typeof emptyForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [sendingLinkId, setSendingLinkId] = useState<string | null>(null);
+  const [checkingStatusId, setCheckingStatusId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -149,6 +154,40 @@ export default function PaymentsManager() {
     await load();
   };
 
+  const handleSendLink = async (row: Payment) => {
+    setSendingLinkId(row._id);
+    try {
+      const res = await fetch(`/api/admin/payments/${row._id}/send-link`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.error ?? "Failed to send payment link");
+        return;
+      }
+      await load();
+    } finally {
+      setSendingLinkId(null);
+    }
+  };
+
+  const handleCheckStatus = async (row: Payment) => {
+    setCheckingStatusId(row._id);
+    try {
+      const res = await fetch(`/api/admin/payments/${row._id}/check-status`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.error ?? "Failed to check payment status");
+        return;
+      }
+      await load();
+    } finally {
+      setCheckingStatusId(null);
+    }
+  };
+
+  const handleCopyLink = (row: Payment) => {
+    if (row.paymentLinkUrl) navigator.clipboard.writeText(row.paymentLinkUrl);
+  };
+
   return (
     <div>
       <div className="mb-8 flex items-start justify-between gap-4">
@@ -215,10 +254,55 @@ export default function PaymentsManager() {
                       <span className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusColor[row.status] ?? "bg-foreground/10"}`}>
                         {row.status}
                       </span>
+                      {row.paymentLinkStatus && (
+                        <span className="ml-1.5 rounded-full bg-foreground/10 px-2 py-1 text-xs font-medium text-foreground/60">
+                          Link: {row.paymentLinkStatus}
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-3 text-foreground/60">{row.dueDate ? formatDate(row.dueDate) : "—"}</td>
                     <td className="px-5 py-3">
                       <div className="flex justify-end gap-2">
+                        {row.status !== "paid" && (
+                          <button
+                            onClick={() => handleSendLink(row)}
+                            disabled={sendingLinkId === row._id}
+                            aria-label="Send Payment Link"
+                            title="Send Payment Link"
+                            className="flex size-8 items-center justify-center rounded-lg text-foreground/50 hover:bg-navy/10 hover:text-navy disabled:opacity-60"
+                          >
+                            {sendingLinkId === row._id ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                              <Send className="size-4" />
+                            )}
+                          </button>
+                        )}
+                        {row.paymentLinkId && row.status !== "paid" && (
+                          <button
+                            onClick={() => handleCheckStatus(row)}
+                            disabled={checkingStatusId === row._id}
+                            aria-label="Check Payment Status"
+                            title="Check Payment Status"
+                            className="flex size-8 items-center justify-center rounded-lg text-foreground/50 hover:bg-navy/10 hover:text-navy disabled:opacity-60"
+                          >
+                            {checkingStatusId === row._id ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                              <RefreshCw className="size-4" />
+                            )}
+                          </button>
+                        )}
+                        {row.paymentLinkUrl && (
+                          <button
+                            onClick={() => handleCopyLink(row)}
+                            aria-label="Copy Payment Link"
+                            title="Copy Payment Link"
+                            className="flex size-8 items-center justify-center rounded-lg text-foreground/50 hover:bg-navy/10 hover:text-navy"
+                          >
+                            <Copy className="size-4" />
+                          </button>
+                        )}
                         <button
                           onClick={() => openEdit(row)}
                           aria-label="Edit"
