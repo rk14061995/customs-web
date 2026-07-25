@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
 import { getServices, getBlogPosts } from "@/lib/queries";
+import { siteConfig } from "@/lib/data";
 
-const BASE_URL = "https://www.ranaforwarder.com";
+const BASE_URL = siteConfig.url;
 
 const staticRoutes = [
   "",

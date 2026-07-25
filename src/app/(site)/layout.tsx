@@ -31,8 +31,8 @@ export default async function SiteLayout({
     "@type": "Organization",
     name: resolvedSettings.siteName,
     description: siteConfig.description,
-    url: "https://www.ranaforwarder.com",
-    logo: "https://www.ranaforwarder.com/favicon.ico",
+    url: siteConfig.url,
+    logo: `${siteConfig.url}/apple-icon`,
     telephone: resolvedSettings.phone,
     email: resolvedSettings.email,
     address: {

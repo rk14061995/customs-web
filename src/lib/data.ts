@@ -10,6 +10,7 @@ import type {
 export const siteConfig = {
   name: "Rana Forwarder",
   tagline: "Delivering Trust Across Borders",
+  url: "https://customs-web-seven.vercel.app",
   description:
     "Rana Forwarder is a premium global logistics and courier partner offering air freight, ocean freight, road transport, warehousing, and express delivery across 220+ countries.",
   phone: "+91 98919 55255",
