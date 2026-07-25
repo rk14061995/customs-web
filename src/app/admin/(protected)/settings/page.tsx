@@ -13,6 +13,9 @@ type SettingsData = {
   email: string;
   address: string;
   hours: string;
+  description?: string;
+  ga4MeasurementId?: string;
+  googleAdsId?: string;
   social: { facebook?: string; twitter?: string; linkedin?: string; instagram?: string };
 };
 
@@ -28,6 +31,9 @@ const emptySettings: SettingsData = {
   email: "",
   address: "",
   hours: "",
+  description: "",
+  ga4MeasurementId: "",
+  googleAdsId: "",
   social: {},
 };
 
@@ -98,6 +104,39 @@ export default function AdminSettingsPage() {
         <div>
           <label className="mb-1.5 block text-sm font-medium text-foreground">Office Address</label>
           <textarea rows={2} value={data.address} onChange={(e) => setData({ ...data, address: e.target.value })} className={inputClass} />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-foreground">Site Description (SEO)</label>
+          <textarea
+            rows={2}
+            value={data.description ?? ""}
+            onChange={(e) => setData({ ...data, description: e.target.value })}
+            className={inputClass}
+          />
+        </div>
+
+        <div>
+          <p className="mb-1.5 text-sm font-medium text-foreground">Analytics & Tracking</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-xs text-foreground/60">GA4 Measurement ID</label>
+              <input
+                value={data.ga4MeasurementId ?? ""}
+                onChange={(e) => setData({ ...data, ga4MeasurementId: e.target.value })}
+                placeholder="G-XXXXXXXXXX"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs text-foreground/60">Google Ads Conversion ID</label>
+              <input
+                value={data.googleAdsId ?? ""}
+                onChange={(e) => setData({ ...data, googleAdsId: e.target.value })}
+                placeholder="AW-XXXXXXXXX"
+                className={inputClass}
+              />
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

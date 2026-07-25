@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import dbConnect from "@/lib/dbConnect";
 import Settings from "@/models/Settings";
 import { getAdminSession } from "@/lib/auth";
@@ -21,5 +22,6 @@ export async function PUT(req: NextRequest) {
     upsert: true,
     runValidators: true,
   });
+  revalidatePath("/", "layout");
   return NextResponse.json(doc);
 }

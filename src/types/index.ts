@@ -48,6 +48,7 @@ export interface TrackingEvent {
   location: string;
   date: string;
   completed: boolean;
+  notes?: string;
 }
 
 export interface TrackingResult {

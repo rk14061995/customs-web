@@ -8,8 +8,8 @@ import Card from "@/components/ui/Card";
 import Stats from "@/components/home/Stats";
 import WhyChooseUs from "@/components/home/WhyChooseUs";
 import CTA from "@/components/home/CTA";
-import { companyTimeline, stats as fallbackStats } from "@/lib/data";
-import { getTeamMembers, getHomepageContent } from "@/lib/queries";
+import { companyTimeline, stats as fallbackStats, siteConfig } from "@/lib/data";
+import { getTeamMembers, getHomepageContent, getSettings } from "@/lib/queries";
 
 export const metadata: Metadata = {
   title: "About Us",
@@ -26,7 +26,11 @@ const coreValues = [
 ];
 
 export default async function AboutPage() {
-  const [teamMembers, homepage] = await Promise.all([getTeamMembers(), getHomepageContent()]);
+  const [teamMembers, homepage, settings] = await Promise.all([
+    getTeamMembers(),
+    getHomepageContent(),
+    getSettings(),
+  ]);
 
   return (
     <>
@@ -182,7 +186,7 @@ export default async function AboutPage() {
       <WhyChooseUs />
 
       <Section>
-        <CTA />
+        <CTA phone={settings?.phone ?? siteConfig.phone} />
       </Section>
     </>
   );

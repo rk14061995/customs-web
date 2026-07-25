@@ -8,14 +8,18 @@ import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import CTA from "@/components/home/CTA";
 import type { Service } from "@/types";
+import { getSettings } from "@/lib/queries";
+import { siteConfig } from "@/lib/data";
 
-export default function ServiceDetail({
+export default async function ServiceDetail({
   service,
   related,
 }: {
   service: Service;
   related: Service[];
 }) {
+  const settings = await getSettings();
+
   return (
     <>
       <section className="relative overflow-hidden bg-navy py-20 md:py-28">
@@ -93,7 +97,7 @@ export default function ServiceDetail({
       </div>
 
       <Section>
-        <CTA />
+        <CTA phone={settings?.phone ?? siteConfig.phone} />
       </Section>
     </>
   );

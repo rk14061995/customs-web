@@ -7,7 +7,8 @@ import SectionHeading from "@/components/ui/SectionHeading";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import CTA from "@/components/home/CTA";
-import { getServices } from "@/lib/queries";
+import { getServices, getSettings } from "@/lib/queries";
+import { siteConfig } from "@/lib/data";
 
 export const metadata: Metadata = {
   title: "Our Services",
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
 };
 
 export default async function ServicesPage() {
-  const services = await getServices();
+  const [services, settings] = await Promise.all([getServices(), getSettings()]);
 
   return (
     <>
@@ -76,7 +77,7 @@ export default async function ServicesPage() {
       </Section>
 
       <Section>
-        <CTA />
+        <CTA phone={settings?.phone ?? siteConfig.phone} />
       </Section>
     </>
   );

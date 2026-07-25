@@ -1,3 +1,4 @@
+import { cache } from "react";
 import dbConnect from "@/lib/dbConnect";
 import ServiceModel from "@/models/Service";
 import BlogModel from "@/models/Blog";
@@ -142,7 +143,7 @@ export async function getAdminStats() {
   });
 }
 
-export async function getSettings() {
+export const getSettings = cache(async () => {
   await dbConnect();
   const doc = await SettingsModel.findOne().lean();
   return serialize<{
@@ -154,6 +155,9 @@ export async function getSettings() {
     email: string;
     address: string;
     hours: string;
+    description?: string;
+    ga4MeasurementId?: string;
+    googleAdsId?: string;
     social: { facebook?: string; twitter?: string; linkedin?: string; instagram?: string };
   } | null>(doc);
-}
+});

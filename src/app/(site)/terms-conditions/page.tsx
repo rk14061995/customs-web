@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import { siteConfig } from "@/lib/data";
+import { getSettings } from "@/lib/queries";
 
 export const metadata: Metadata = {
   title: "Terms & Conditions",
@@ -9,7 +10,8 @@ export const metadata: Metadata = {
   alternates: { canonical: "/terms-conditions" },
 };
 
-const sections = [
+function buildSections(email: string, phone: string) {
+  return [
   {
     title: "1. Acceptance of Terms",
     body: "By accessing our website or using our shipping and logistics services, you agree to be bound by these Terms & Conditions and our Privacy Policy.",
@@ -42,13 +44,17 @@ const sections = [
     title: "8. Governing Law",
     body: "These terms are governed by the laws of the jurisdiction in which Rana Forwarder is headquartered, without regard to conflict of law principles.",
   },
-  {
-    title: "9. Contact",
-    body: `Questions about these terms can be directed to ${siteConfig.email} or ${siteConfig.phone}.`,
-  },
-];
+    {
+      title: "9. Contact",
+      body: `Questions about these terms can be directed to ${email} or ${phone}.`,
+    },
+  ];
+}
 
-export default function TermsConditionsPage() {
+export default async function TermsConditionsPage() {
+  const settings = await getSettings();
+  const sections = buildSections(settings?.email ?? siteConfig.email, settings?.phone ?? siteConfig.phone);
+
   return (
     <>
       <section className="bg-navy py-16 text-center md:py-20">

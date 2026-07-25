@@ -182,6 +182,9 @@ export default function TrackingForm() {
                             <p className="text-sm text-foreground/50">
                               {event.location} · {event.date}
                             </p>
+                            {event.notes && (
+                              <p className="mt-1 text-sm text-foreground/60">{event.notes}</p>
+                            )}
                           </div>
                         </li>
                       );

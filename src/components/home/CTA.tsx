@@ -5,9 +5,8 @@ import { Send, PhoneCall } from "lucide-react";
 import Container from "@/components/ui/Container";
 import Button from "@/components/ui/Button";
 import { fadeUp, viewportOnce } from "@/lib/motion";
-import { siteConfig } from "@/lib/data";
 
-export default function CTA() {
+export default function CTA({ phone }: { phone: string }) {
   return (
     <Container>
       <motion.div
@@ -31,7 +30,7 @@ export default function CTA() {
             <Button href="/quote" size="lg" icon={Send}>
               Get a Free Quote
             </Button>
-            <Button href={`tel:${siteConfig.phone.replace(/[^+\d]/g, "")}`} size="lg" variant="outline" icon={PhoneCall}>
+            <Button href={`tel:${phone.replace(/[^+\d]/g, "")}`} size="lg" variant="outline" icon={PhoneCall}>
               Call Us Now
             </Button>
           </div>

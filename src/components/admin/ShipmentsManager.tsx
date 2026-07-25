@@ -50,7 +50,7 @@ const paymentStatusColor: Record<string, string> = {
 
 type Customer = { _id: string; name: string; company?: string };
 type Carrier = { _id: string; name: string; provider?: string };
-type ShipmentEvent = { status: string; location: string; date: string; completed: boolean };
+type ShipmentEvent = { status: string; location: string; date: string; completed: boolean; notes?: string };
 type Shipment = {
   _id: string;
   trackingNumber: string;
@@ -110,6 +110,7 @@ export default function ShipmentsManager() {
     location: "",
     date: new Date().toISOString().slice(0, 10),
     completed: true,
+    notes: "",
   });
   const [savingEvent, setSavingEvent] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -221,6 +222,7 @@ export default function ShipmentsManager() {
       location: row.destination,
       date: new Date().toISOString().slice(0, 10),
       completed: true,
+      notes: "",
     });
   };
 
@@ -629,9 +631,12 @@ export default function ShipmentsManager() {
 
             <ol className="mb-6 space-y-3 border-b border-border-subtle pb-6">
               {timelineFor.events.map((event, i) => (
-                <li key={i} className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-foreground">{event.status}</span>
-                  <span className="text-foreground/50">{event.location} · {event.date}</span>
+                <li key={i} className="text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-foreground">{event.status}</span>
+                    <span className="text-foreground/50">{event.location} · {event.date}</span>
+                  </div>
+                  {event.notes && <p className="mt-1 text-foreground/50">{event.notes}</p>}
                 </li>
               ))}
             </ol>
@@ -657,6 +662,12 @@ export default function ShipmentsManager() {
                 type="date"
                 value={newEvent.date}
                 onChange={(e) => setNewEvent((v) => ({ ...v, date: e.target.value }))}
+                className="w-full rounded-xl border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none focus:border-navy"
+              />
+              <input
+                value={newEvent.notes}
+                onChange={(e) => setNewEvent((v) => ({ ...v, notes: e.target.value }))}
+                placeholder="Note (optional) — visible to the customer when tracking"
                 className="w-full rounded-xl border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none focus:border-navy"
               />
             </div>

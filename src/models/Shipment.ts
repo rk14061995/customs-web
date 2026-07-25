@@ -5,6 +5,7 @@ export interface IShipmentEvent {
   location: string;
   date: string;
   completed: boolean;
+  notes?: string;
 }
 
 export const SHIPMENT_STATUSES = [
@@ -59,6 +60,7 @@ const ShipmentEventSchema = new Schema<IShipmentEvent>(
     location: { type: String, required: true },
     date: { type: String, required: true },
     completed: { type: Boolean, default: false },
+    notes: { type: String },
   },
   { _id: false }
 );

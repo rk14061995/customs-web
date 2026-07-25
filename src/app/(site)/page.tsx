@@ -8,8 +8,8 @@ import HowItWorks from "@/components/home/HowItWorks";
 import Testimonials from "@/components/home/Testimonials";
 import LatestBlog from "@/components/home/LatestBlog";
 import CTA from "@/components/home/CTA";
-import { getServices, getTestimonials, getBlogPosts, getHomepageContent } from "@/lib/queries";
-import { stats as fallbackStats } from "@/lib/data";
+import { getServices, getTestimonials, getBlogPosts, getHomepageContent, getSettings } from "@/lib/queries";
+import { stats as fallbackStats, siteConfig } from "@/lib/data";
 
 export const metadata: Metadata = {
   title: "Reliable Global Logistics Solutions",
@@ -19,11 +19,12 @@ export const metadata: Metadata = {
 };
 
 export default async function Home() {
-  const [services, testimonials, posts, homepage] = await Promise.all([
+  const [services, testimonials, posts, homepage, settings] = await Promise.all([
     getServices(),
     getTestimonials(),
     getBlogPosts(),
     getHomepageContent(),
+    getSettings(),
   ]);
 
   return (
@@ -48,7 +49,7 @@ export default async function Home() {
         <LatestBlog posts={posts} />
       </Section>
       <Section className="pt-0">
-        <CTA />
+        <CTA phone={settings?.phone ?? siteConfig.phone} />
       </Section>
     </>
   );

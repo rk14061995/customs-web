@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import { siteConfig } from "@/lib/data";
+import { getSettings } from "@/lib/queries";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
@@ -9,7 +10,8 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy-policy" },
 };
 
-const sections = [
+function buildSections(email: string, phone: string) {
+  return [
   {
     title: "1. Information We Collect",
     body: "We collect information you provide directly, such as your name, company, phone number, email, and shipment details when you request a quote, track a shipment, or contact us. We also collect usage data such as IP address, browser type, and pages visited to improve our services.",
@@ -38,13 +40,17 @@ const sections = [
     title: "7. Changes to This Policy",
     body: "We may update this Privacy Policy periodically. Continued use of our services after changes constitutes acceptance of the updated policy.",
   },
-  {
-    title: "8. Contact Us",
-    body: `For privacy-related questions, contact us at ${siteConfig.email} or ${siteConfig.phone}.`,
-  },
-];
+    {
+      title: "8. Contact Us",
+      body: `For privacy-related questions, contact us at ${email} or ${phone}.`,
+    },
+  ];
+}
 
-export default function PrivacyPolicyPage() {
+export default async function PrivacyPolicyPage() {
+  const settings = await getSettings();
+  const sections = buildSections(settings?.email ?? siteConfig.email, settings?.phone ?? siteConfig.phone);
+
   return (
     <>
       <section className="bg-navy py-16 text-center md:py-20">

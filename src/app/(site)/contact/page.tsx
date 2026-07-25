@@ -5,6 +5,7 @@ import Section from "@/components/ui/Section";
 import Card from "@/components/ui/Card";
 import ContactForm from "@/components/contact/ContactForm";
 import { siteConfig } from "@/lib/data";
+import { getSettings } from "@/lib/queries";
 
 export const metadata: Metadata = {
   title: "Contact Us",
@@ -12,14 +13,21 @@ export const metadata: Metadata = {
   alternates: { canonical: "/contact" },
 };
 
-const info = [
-  { icon: MapPin, label: "Office Address", value: siteConfig.address },
-  { icon: Phone, label: "Phone", value: `${siteConfig.phone} / ${siteConfig.alternatePhone}` },
-  { icon: Mail, label: "Email", value: siteConfig.email },
-  { icon: Clock, label: "Business Hours", value: siteConfig.hours },
-];
+export default async function ContactPage() {
+  const settings = await getSettings();
+  const resolved = settings ?? siteConfig;
 
-export default function ContactPage() {
+  const info = [
+    { icon: MapPin, label: "Office Address", value: resolved.address },
+    {
+      icon: Phone,
+      label: "Phone",
+      value: resolved.alternatePhone ? `${resolved.phone} / ${resolved.alternatePhone}` : resolved.phone,
+    },
+    { icon: Mail, label: "Email", value: resolved.email },
+    { icon: Clock, label: "Business Hours", value: resolved.hours },
+  ];
+
   return (
     <>
       <section className="bg-navy py-20 text-center md:py-28">

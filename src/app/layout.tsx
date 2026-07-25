@@ -3,6 +3,7 @@ import { Poppins, Inter } from "next/font/google";
 import "./globals.css";
 import ThemeProvider from "@/components/shared/ThemeProvider";
 import { siteConfig } from "@/lib/data";
+import { getSettings } from "@/lib/queries";
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -15,35 +16,42 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  metadataBase: new URL(siteConfig.url),
-  title: {
-    default: `${siteConfig.name} | ${siteConfig.tagline}`,
-    template: `%s | ${siteConfig.name}`,
-  },
-  description: siteConfig.description,
-  keywords: [
-    "logistics",
-    "courier",
-    "freight forwarding",
-    "air freight",
-    "ocean freight",
-    "international shipping",
-    "warehousing",
-  ],
-  openGraph: {
-    type: "website",
-    siteName: siteConfig.name,
-    title: `${siteConfig.name} | ${siteConfig.tagline}`,
-    description: siteConfig.description,
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: `${siteConfig.name} | ${siteConfig.tagline}`,
-    description: siteConfig.description,
-  },
-  robots: { index: true, follow: true },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSettings();
+  const name = settings?.siteName ?? siteConfig.name;
+  const tagline = settings?.tagline ?? siteConfig.tagline;
+  const description = settings?.description ?? siteConfig.description;
+
+  return {
+    metadataBase: new URL(siteConfig.url),
+    title: {
+      default: `${name} | ${tagline}`,
+      template: `%s | ${name}`,
+    },
+    description,
+    keywords: [
+      "logistics",
+      "courier",
+      "freight forwarding",
+      "air freight",
+      "ocean freight",
+      "international shipping",
+      "warehousing",
+    ],
+    openGraph: {
+      type: "website",
+      siteName: name,
+      title: `${name} | ${tagline}`,
+      description,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${name} | ${tagline}`,
+      description,
+    },
+    robots: { index: true, follow: true },
+  };
+}
 
 export default function RootLayout({
   children,

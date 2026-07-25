@@ -3,7 +3,8 @@ import Container from "@/components/ui/Container";
 import Section from "@/components/ui/Section";
 import FaqAccordion from "@/components/faq/FaqAccordion";
 import CTA from "@/components/home/CTA";
-import { getFaqs } from "@/lib/queries";
+import { getFaqs, getSettings } from "@/lib/queries";
+import { siteConfig } from "@/lib/data";
 
 export const metadata: Metadata = {
   title: "FAQ",
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 export default async function FaqPage() {
-  const faqs = await getFaqs();
+  const [faqs, settings] = await Promise.all([getFaqs(), getSettings()]);
 
   return (
     <>
@@ -36,7 +37,7 @@ export default async function FaqPage() {
         </Container>
       </Section>
       <Section className="pt-0">
-        <CTA />
+        <CTA phone={settings?.phone ?? siteConfig.phone} />
       </Section>
     </>
   );

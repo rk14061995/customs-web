@@ -9,6 +9,9 @@ export interface ISettings extends Document {
   email: string;
   address: string;
   hours: string;
+  description?: string;
+  ga4MeasurementId?: string;
+  googleAdsId?: string;
   social: {
     facebook?: string;
     twitter?: string;
@@ -28,6 +31,9 @@ const SettingsSchema = new Schema<ISettings>(
     email: { type: String, required: true },
     address: { type: String, required: true },
     hours: { type: String, required: true },
+    description: { type: String },
+    ga4MeasurementId: { type: String },
+    googleAdsId: { type: String },
     social: {
       facebook: String,
       twitter: String,

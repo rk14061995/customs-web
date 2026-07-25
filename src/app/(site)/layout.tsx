@@ -1,3 +1,4 @@
+import Script from "next/script";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import WhatsAppButton from "@/components/shared/WhatsAppButton";
@@ -24,6 +25,8 @@ export default async function SiteLayout({
     address: siteConfig.address,
     hours: siteConfig.hours,
     social: siteConfig.social,
+    ga4MeasurementId: undefined as string | undefined,
+    googleAdsId: undefined as string | undefined,
   };
 
   const organizationSchema = {
@@ -42,12 +45,26 @@ export default async function SiteLayout({
     sameAs: Object.values(resolvedSettings.social).filter(Boolean),
   };
 
+  const gtagId = resolvedSettings.ga4MeasurementId ?? resolvedSettings.googleAdsId;
+
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
       />
+      {gtagId && (
+        <>
+          <Script src={`https://www.googletagmanager.com/gtag/js?id=${gtagId}`} strategy="afterInteractive" />
+          <Script id="gtag-init" strategy="afterInteractive">
+            {`window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              ${resolvedSettings.ga4MeasurementId ? `gtag('config', '${resolvedSettings.ga4MeasurementId}');` : ""}
+              ${resolvedSettings.googleAdsId ? `gtag('config', '${resolvedSettings.googleAdsId}');` : ""}`}
+          </Script>
+        </>
+      )}
       <Navbar services={services} siteName={resolvedSettings.siteName} tagline={resolvedSettings.tagline} />
       <main>{children}</main>
       <Footer settings={resolvedSettings} />
