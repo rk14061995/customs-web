@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
+import { cn } from "@/lib/utils";
 import type { TrackingResult } from "@/types";
 
 const statusIcons: Record<string, typeof PackageCheck> = {
@@ -158,14 +159,95 @@ export default function TrackingForm() {
                 </div>
               )}
 
+              {(() => {
+                const currentIndex = result.events.reduce(
+                  (acc, event, i) => (event.completed ? i : acc),
+                  -1
+                );
+                return (
+                  <div className="hidden border-b border-border-subtle py-8 sm:block">
+                    <p className="mb-6 text-xs font-semibold uppercase tracking-wide text-foreground/50">
+                      Shipment Progress
+                    </p>
+                    <div className="flex items-start">
+                      {result.events.map((event, i) => {
+                        const Icon = statusIcons[event.status] ?? Circle;
+                        const isCurrent = i === currentIndex;
+                        return (
+                          <div
+                            key={`${event.status}-${event.date}-${i}`}
+                            className="flex flex-1 flex-col items-center"
+                          >
+                            <div className="flex w-full items-center">
+                              <div
+                                className={cn(
+                                  "h-0.5 flex-1 transition-colors duration-500",
+                                  i === 0
+                                    ? "invisible"
+                                    : event.completed
+                                      ? "bg-navy"
+                                      : "bg-border-subtle"
+                                )}
+                              />
+                              <span
+                                className={cn(
+                                  "relative flex size-9 shrink-0 items-center justify-center rounded-full border-2 transition-colors duration-500",
+                                  event.completed
+                                    ? isCurrent
+                                      ? "border-orange bg-orange text-white"
+                                      : "border-navy bg-navy text-white"
+                                    : "border-border-subtle bg-surface text-foreground/30"
+                                )}
+                              >
+                                {isCurrent && (
+                                  <span className="absolute inset-0 animate-ping rounded-full bg-orange/40" />
+                                )}
+                                <Icon className="relative size-4" />
+                              </span>
+                              <div
+                                className={cn(
+                                  "h-0.5 flex-1 transition-colors duration-500",
+                                  i === result.events.length - 1
+                                    ? "invisible"
+                                    : result.events[i + 1]?.completed
+                                      ? "bg-navy"
+                                      : "bg-border-subtle"
+                                )}
+                              />
+                            </div>
+                            <p
+                              className={cn(
+                                "mt-2 px-1 text-center text-[11px] font-medium leading-tight",
+                                event.completed ? "text-foreground" : "text-foreground/40"
+                              )}
+                            >
+                              {event.status}
+                            </p>
+                            {isCurrent && (
+                              <p className="mt-0.5 text-center text-[10px] text-foreground/50">{event.date}</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div className="pt-8">
                 <div className="relative">
                   <div className="absolute left-[15px] top-2 bottom-2 w-px bg-border-subtle sm:left-1/2 sm:hidden" />
+                  <p className="mb-6 text-xs font-semibold uppercase tracking-wide text-foreground/50 sm:hidden">
+                    Shipment Progress
+                  </p>
+                  <p className="mb-6 hidden text-xs font-semibold uppercase tracking-wide text-foreground/50 sm:block">
+                    Tracking History
+                  </p>
                   <ol className="space-y-8">
-                    {result.events.map((event) => {
+                    {result.events.map((event, i) => {
                       const Icon = statusIcons[event.status] ?? Circle;
                       return (
-                        <li key={event.status} className="relative flex gap-4">
+                        <li key={`${event.status}-${event.date}-${i}`} className="relative flex gap-4">
                           <span
                             className={`z-10 flex size-8 shrink-0 items-center justify-center rounded-full ${
                               event.completed
