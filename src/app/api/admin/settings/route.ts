@@ -17,11 +17,11 @@ export async function PUT(req: NextRequest) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   await dbConnect();
   const body = await req.json();
-  const doc = await Settings.findOneAndUpdate({}, body, {
-    new: true,
-    upsert: true,
-    runValidators: true,
-  });
+  const doc = await Settings.findOneAndUpdate(
+    {},
+    { $set: body },
+    { new: true, upsert: true, runValidators: true }
+  );
   revalidatePath("/", "layout");
   return NextResponse.json(doc);
 }

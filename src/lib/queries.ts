@@ -70,6 +70,11 @@ export async function getHomepageContent() {
   } | null>(doc);
 }
 
+/** Converts a per-currency payment total into INR using the admin-configured USD→INR rate (other currencies pass through unconverted). */
+function sumInInr(byCurrency: { _id: string | null; total: number }[], usdToInrRate: number) {
+  return byCurrency.reduce((sum, g) => sum + (g._id === "USD" ? g.total * usdToInrRate : g.total), 0);
+}
+
 export async function getAdminStats() {
   await dbConnect();
   const [
@@ -87,6 +92,7 @@ export async function getAdminStats() {
     recentShipments,
     paidAgg,
     pendingAgg,
+    settingsDoc,
   ] = await Promise.all([
     QuoteModel.countDocuments(),
     ContactModel.countDocuments(),
@@ -102,13 +108,16 @@ export async function getAdminStats() {
     ShipmentModel.find().sort({ createdAt: -1 }).limit(5).populate("customer", "name company").lean(),
     PaymentModel.aggregate([
       { $match: { status: "paid" } },
-      { $group: { _id: null, total: { $sum: "$amount" } } },
+      { $group: { _id: "$currency", total: { $sum: "$amount" } } },
     ]),
     PaymentModel.aggregate([
       { $match: { status: "pending" } },
-      { $group: { _id: null, total: { $sum: "$amount" } } },
+      { $group: { _id: "$currency", total: { $sum: "$amount" } } },
     ]),
+    SettingsModel.findOne().lean(),
   ]);
+
+  const usdToInrRate = (settingsDoc as { usdToInrRate?: number } | null)?.usdToInrRate ?? 96;
 
   return serialize<{
     quoteCount: number;
@@ -125,6 +134,7 @@ export async function getAdminStats() {
     recentShipments: Array<Record<string, unknown>>;
     totalRevenue: number;
     pendingRevenue: number;
+    usdToInrRate: number;
   }>({
     quoteCount,
     contactCount,
@@ -138,8 +148,9 @@ export async function getAdminStats() {
     shipmentCount,
     activeShipmentCount,
     recentShipments,
-    totalRevenue: paidAgg[0]?.total ?? 0,
-    pendingRevenue: pendingAgg[0]?.total ?? 0,
+    totalRevenue: sumInInr(paidAgg, usdToInrRate),
+    pendingRevenue: sumInInr(pendingAgg, usdToInrRate),
+    usdToInrRate,
   });
 }
 

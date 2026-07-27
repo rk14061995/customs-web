@@ -12,6 +12,7 @@ export interface ISettings extends Document {
   description?: string;
   ga4MeasurementId?: string;
   googleAdsId?: string;
+  usdToInrRate: number;
   social: {
     facebook?: string;
     twitter?: string;
@@ -34,6 +35,7 @@ const SettingsSchema = new Schema<ISettings>(
     description: { type: String },
     ga4MeasurementId: { type: String },
     googleAdsId: { type: String },
+    usdToInrRate: { type: Number, default: 96 },
     social: {
       facebook: String,
       twitter: String,

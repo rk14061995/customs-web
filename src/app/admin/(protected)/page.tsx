@@ -12,6 +12,7 @@ import {
   Clock,
 } from "lucide-react";
 import StatCard from "@/components/admin/StatCard";
+import CurrencySettingsCard from "@/components/admin/CurrencySettingsCard";
 import { getAdminStats } from "@/lib/queries";
 import { formatDate } from "@/lib/utils";
 
@@ -30,8 +31,8 @@ export default async function AdminDashboardPage() {
       <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Active Shipments" value={stats.activeShipmentCount} icon={Truck} accent="orange" />
         <StatCard label="Total Shipments" value={stats.shipmentCount} icon={Package} />
-        <StatCard label="Revenue Collected" value={stats.totalRevenue.toLocaleString()} icon={Wallet} accent="orange" />
-        <StatCard label="Payments Pending" value={stats.pendingRevenue.toLocaleString()} icon={Clock} />
+        <StatCard label="Revenue Collected" value={`₹${stats.totalRevenue.toLocaleString()}`} icon={Wallet} accent="orange" />
+        <StatCard label="Payments Pending" value={`₹${stats.pendingRevenue.toLocaleString()}`} icon={Clock} />
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-5">
@@ -41,6 +42,8 @@ export default async function AdminDashboardPage() {
         <StatCard label="Blog Posts" value={stats.blogCount} icon={Newspaper} />
         <StatCard label="Testimonials" value={stats.testimonialCount} icon={Inbox} />
       </div>
+
+      <CurrencySettingsCard initialRate={stats.usdToInrRate} />
 
       <div className="mt-10 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-border-subtle bg-background p-5">
