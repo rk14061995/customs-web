@@ -17,6 +17,8 @@ export interface IQuotation extends Document {
   destination: string;
   serviceType: string;
   weightKg: number;
+  /** Number of boxes/packages being shipped. Informational only — not used in any price calculation. */
+  quantity: number;
   dimensions?: string;
   charges: IQuoteCharge[];
   currency: string;
@@ -47,6 +49,7 @@ const QuotationSchema = new Schema<IQuotation>(
     destination: { type: String, required: true },
     serviceType: { type: String, required: true },
     weightKg: { type: Number, required: true },
+    quantity: { type: Number, required: true, default: 1 },
     dimensions: { type: String },
     charges: { type: [QuoteChargeSchema], default: [] },
     currency: { type: String, default: "INR" },

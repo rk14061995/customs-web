@@ -43,6 +43,7 @@ type Quotation = {
   destination: string;
   serviceType: string;
   weightKg: number;
+  quantity: number;
   dimensions?: string;
   charges: Charge[];
   currency: string;
@@ -68,6 +69,7 @@ const emptyForm = {
   destination: "",
   serviceType: SERVICE_TYPES[0],
   weightKg: 0,
+  quantity: 1,
   dimensions: "",
   charges: defaultCharges,
   currency: "INR",
@@ -142,6 +144,7 @@ export default function QuotationsManager() {
       destination: row.destination,
       serviceType: row.serviceType,
       weightKg: row.weightKg,
+      quantity: row.quantity ?? 1,
       dimensions: row.dimensions ?? "",
       charges: row.charges.length ? row.charges : defaultCharges,
       currency: row.currency,
@@ -363,6 +366,10 @@ export default function QuotationsManager() {
                 <p className="text-foreground/50">Weight</p>
                 <p className="font-medium text-foreground">{viewing.weightKg} kg</p>
               </div>
+              <div>
+                <p className="text-foreground/50">Quantity (Boxes)</p>
+                <p className="font-medium text-foreground">{viewing.quantity ?? 1}</p>
+              </div>
               {viewing.dimensions && (
                 <div>
                   <p className="text-foreground/50">Dimensions</p>
@@ -519,6 +526,21 @@ export default function QuotationsManager() {
                   className="w-full rounded-xl border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none focus:border-navy"
                 />
                 <p className="mt-1 text-xs text-foreground/50">Used to compute any charges billed per kg.</p>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-foreground">
+                  Quantity (Boxes) <span className="text-orange">*</span>
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  step="1"
+                  value={formValues.quantity}
+                  onChange={(e) => setFormValues((v) => ({ ...v, quantity: Number(e.target.value) }))}
+                  className="w-full rounded-xl border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none focus:border-navy"
+                />
+                <p className="mt-1 text-xs text-foreground/50">Number of boxes/packages being shipped.</p>
               </div>
 
               <div>

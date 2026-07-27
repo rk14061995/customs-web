@@ -15,6 +15,7 @@ type Quotation = {
   destination: string;
   serviceType: string;
   weightKg: number;
+  quantity: number;
   dimensions?: string;
   charges: Charge[];
   currency: string;
@@ -81,7 +82,8 @@ export default function QuotationPrintPage() {
           <p>{quotation.origin} → {quotation.destination}</p>
           <p>{quotation.serviceType}</p>
           <p>
-            {quotation.weightKg} kg{quotation.dimensions ? ` · ${quotation.dimensions}` : ""}
+            {quotation.weightKg} kg · {quotation.quantity ?? 1} box{(quotation.quantity ?? 1) === 1 ? "" : "es"}
+            {quotation.dimensions ? ` · ${quotation.dimensions}` : ""}
           </p>
           {quotation.validUntil && <p>Valid until {quotation.validUntil}</p>}
         </div>
