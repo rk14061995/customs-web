@@ -227,7 +227,7 @@ export const testimonials: Testimonial[] = [
   },
   {
     _id: "t3",
-    name: "Priya Nair",
+    name: "Elsa",
     company: "Lumen Exports",
     role: "Founder",
     quote:

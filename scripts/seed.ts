@@ -28,7 +28,7 @@ import {
 const sampleCustomers = [
   { name: "Amelia Hart", company: "Hart Textiles", email: "amelia@harttextiles.com", phone: "+1 312 555 0110" },
   { name: "Noah Becker", company: "Becker Imports", email: "noah@beckerimports.de", phone: "+49 30 555 0122" },
-  { name: "Priya Nair", company: "Nair Exports", email: "priya@nairexports.in", phone: "+91 98 555 01234" },
+  { name: "Elsa", company: "Nair Exports", email: "priya@nairexports.in", phone: "+91 98 555 01234" },
   { name: "Liam O'Connor", company: "O'Connor Freight Co.", email: "liam@oconnorfreight.ie", phone: "+353 1 555 0140" },
 ];
 
