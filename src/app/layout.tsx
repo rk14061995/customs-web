@@ -6,7 +6,7 @@ import ThemeProvider from "@/components/shared/ThemeProvider";
 import { siteConfig } from "@/lib/data";
 import { getSettings } from "@/lib/queries";
 
-const GA_MEASUREMENT_ID = "G-F1B1WR409V";
+const GA_MEASUREMENT_ID = "G-9S78G2B4H6";
 
 const poppins = Poppins({
   variable: "--font-poppins",
