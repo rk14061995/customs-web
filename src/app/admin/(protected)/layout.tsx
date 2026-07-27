@@ -11,8 +11,8 @@ export default async function ProtectedAdminLayout({
   return (
     <div className="min-h-screen">
       <AdminSidebar name={session.name} />
-      <div className="lg:pl-64">
-        <main className="mx-auto max-w-6xl p-6 lg:p-10">{children}</main>
+      <div className="lg:pl-64 print:pl-0">
+        <main className="mx-auto max-w-6xl p-6 lg:p-10 print:max-w-none print:p-0">{children}</main>
       </div>
     </div>
   );

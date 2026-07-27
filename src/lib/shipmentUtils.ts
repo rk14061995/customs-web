@@ -18,6 +18,10 @@ export function generateInvoiceNumber() {
   return `INV-${Date.now().toString(36).toUpperCase()}${randomSuffix(3)}`;
 }
 
+export function generateQuoteNumber() {
+  return `QT-${Date.now().toString(36).toUpperCase()}${randomSuffix(3)}`;
+}
+
 /** Recomputes a shipment's paymentStatus from its paid/refunded payment records. */
 export async function recomputeShipmentPaymentStatus(shipmentId: string) {
   const shipment = await ShipmentModel.findById(shipmentId);

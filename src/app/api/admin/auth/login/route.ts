@@ -45,12 +45,8 @@ export async function POST(req: NextRequest) {
   // email falls through to the DB-backed user lookup below.
   const staticEmail = process.env.STATIC_ADMIN_EMAIL;
   const staticHash = process.env.STATIC_ADMIN_PASSWORD_HASH;
-  console.log("DEBUG staticEmail:", JSON.stringify(staticEmail));
-  console.log("DEBUG staticHash:", JSON.stringify(staticHash), "len:", staticHash?.length);
-  console.log("DEBUG input email:", JSON.stringify(parsed.data.email), "password:", JSON.stringify(parsed.data.password));
   if (staticEmail && staticHash && parsed.data.email.toLowerCase() === staticEmail.toLowerCase()) {
     const valid = await bcrypt.compare(parsed.data.password, staticHash);
-    console.log("DEBUG bcrypt valid:", valid);
     if (!valid) {
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
     }

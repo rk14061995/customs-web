@@ -19,12 +19,14 @@ import {
   CreditCard,
   Contact2,
   Ship,
+  Receipt,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Shipments", href: "/admin/shipments", icon: Truck },
+  { label: "Quotations", href: "/admin/quotations", icon: Receipt },
   { label: "Payments", href: "/admin/payments", icon: CreditCard },
   { label: "Customers", href: "/admin/customers", icon: Contact2 },
   { label: "Carriers", href: "/admin/carriers", icon: Ship },
@@ -51,7 +53,7 @@ export default function AdminSidebar({ name }: { name: string }) {
   };
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border-subtle bg-background lg:flex">
+    <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border-subtle bg-background lg:flex print:hidden">
       <div className="flex items-center gap-2.5 border-b border-border-subtle px-6 py-5">
         <span className="flex size-9 items-center justify-center rounded-xl bg-navy text-white">
           <Truck className="size-4.5" />
