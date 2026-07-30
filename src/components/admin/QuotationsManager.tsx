@@ -34,7 +34,7 @@ const statusColor: Record<string, string> = {
   expired: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400",
 };
 
-type Customer = { _id: string; name: string; company?: string };
+type Customer = { _id: string; name: string; company?: string; email?: string; phone?: string };
 type Charge = { label: string; basis: "flat" | "per_kg" | "percent"; rate: number };
 type Quotation = {
   _id: string;

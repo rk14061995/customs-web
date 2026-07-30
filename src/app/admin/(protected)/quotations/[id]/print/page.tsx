@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Loader2, Printer } from "lucide-react";
+import { Loader2, Printer, Mail, MessageCircle } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { computeChargeAmount, computeQuotationTotals } from "@/lib/quotationUtils";
 
 type Charge = { label: string; basis: "flat" | "per_kg" | "percent"; rate: number };
-type Settings = { phone: string; alternatePhone?: string; address: string };
+type Settings = { phone: string; alternatePhone?: string; email: string };
 type Quotation = {
   _id: string;
   quoteNumber: string;
@@ -34,6 +34,7 @@ export default function QuotationPrintPage() {
   const { id } = useParams<{ id: string }>();
   const [quotation, setQuotation] = useState<Quotation | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   useEffect(() => {
     fetch(`/api/admin/quotations/${id}`)
@@ -58,11 +59,57 @@ export default function QuotationPrintPage() {
 
   const { baseAmount } = computeQuotationTotals(quotation.charges, quotation.weightKg, quotation.taxRate);
 
+  const handleSendEmail = async () => {
+    if (!quotation.customer?.email) {
+      alert("This customer has no email on file — add one before sending the quotation.");
+      return;
+    }
+    if (!confirm(`Email quotation ${quotation.quoteNumber} to ${quotation.customer.email}?`)) return;
+    setSendingEmail(true);
+    try {
+      const res = await fetch(`/api/admin/quotations/${quotation._id}/send-email`, { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error ?? "Failed to send email");
+      }
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  const handleSendWhatsApp = () => {
+    const digits = String(quotation.customer?.phone ?? "").replace(/[^0-9]/g, "");
+    if (!digits) {
+      alert("This customer has no phone number on file.");
+      return;
+    }
+    const lines = quotation.charges.map(
+      (c) => `${c.label}: ${quotation.currency} ${computeChargeAmount(c, quotation.weightKg, baseAmount).toLocaleString()}`
+    );
+    const text = [
+      `Quotation ${quotation.quoteNumber} — Rana Forwarder`,
+      `${quotation.origin} → ${quotation.destination} (${quotation.serviceType}, ${quotation.weightKg}kg)`,
+      "",
+      ...lines,
+      "",
+      `Subtotal: ${quotation.currency} ${quotation.subtotal.toLocaleString()}`,
+      `GST (${quotation.taxRate}%): ${quotation.currency} ${quotation.taxAmount.toLocaleString()}`,
+      `Total: ${quotation.currency} ${quotation.total.toLocaleString()}`,
+    ].join("\n");
+    window.open(`https://wa.me/${digits}?text=${encodeURIComponent(text)}`, "_blank");
+  };
+
   return (
     <div className="mx-auto max-w-3xl bg-white p-10 text-slate-900 print:p-0">
       <style>{`@page { size: A4; margin: 1.5cm; }`}</style>
 
-      <div className="mb-8 flex justify-end print:hidden">
+      <div className="mb-8 flex justify-end gap-3 print:hidden">
+        <Button variant="secondary" icon={MessageCircle} onClick={handleSendWhatsApp}>
+          WhatsApp
+        </Button>
+        <Button variant="secondary" icon={Mail} onClick={handleSendEmail} disabled={sendingEmail}>
+          {sendingEmail ? <Loader2 className="size-4 animate-spin" /> : "Email"}
+        </Button>
         <Button icon={Printer} onClick={() => window.print()}>
           Print / Save as PDF
         </Button>
@@ -72,7 +119,7 @@ export default function QuotationPrintPage() {
         <div>
           <p className="font-heading text-xl font-bold text-navy">Rana Forwarder</p>
           <p className="text-sm text-slate-500">Logistics & Freight Forwarding</p>
-          {settings?.address && <p className="mt-1 text-xs text-slate-500">{settings.address}</p>}
+          {settings?.email && <p className="mt-1 text-xs text-slate-500">{settings.email}</p>}
           {settings?.phone && (
             <p className="text-xs text-slate-500">
               {settings.phone}

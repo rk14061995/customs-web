@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trash2, Loader2, Eye, X } from "lucide-react";
+import { Trash2, Loader2, Eye, X, Mail, MessageCircle } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import Button from "@/components/ui/Button";
 
 type Row = Record<string, unknown> & { _id: string; createdAt: string; status: string };
 
@@ -24,6 +25,12 @@ export default function SubmissionsManager({
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewing, setViewing] = useState<Row | null>(null);
+
+  const [composing, setComposing] = useState<Row | null>(null);
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -51,6 +58,47 @@ export default function SubmissionsManager({
     if (!confirm("Delete this submission?")) return;
     await fetch(`${apiPath}/${row._id}`, { method: "DELETE" });
     load();
+  };
+
+  const openCompose = (row: Row) => {
+    const firstName = String(row.name ?? "").split(" ")[0] || "there";
+    setComposing(row);
+    setSubject("Re: Your enquiry — Rana Forwarder");
+    setMessage(`Hi ${firstName},\n\nThank you for reaching out to Rana Forwarder.\n\n`);
+    setSendError("");
+  };
+
+  const closeCompose = () => setComposing(null);
+
+  const handleSendEmail = async () => {
+    if (!composing) return;
+    setSending(true);
+    setSendError("");
+    try {
+      const res = await fetch(`${apiPath}/${composing._id}/send-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subject, message }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setSendError(data.error ?? "Failed to send email");
+        return;
+      }
+      setComposing(null);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleSendWhatsApp = () => {
+    if (!composing) return;
+    const digits = String(composing.phone ?? "").replace(/[^0-9]/g, "");
+    if (!digits) {
+      setSendError("This record has no phone number on file");
+      return;
+    }
+    window.open(`https://wa.me/${digits}?text=${encodeURIComponent(message)}`, "_blank");
   };
 
   const statusColor: Record<string, string> = {
@@ -124,6 +172,13 @@ export default function SubmissionsManager({
                           <Eye className="size-4" />
                         </button>
                         <button
+                          onClick={() => openCompose(row)}
+                          aria-label="Email / WhatsApp"
+                          className="flex size-8 items-center justify-center rounded-lg text-foreground/50 hover:bg-navy/10 hover:text-navy"
+                        >
+                          <Mail className="size-4" />
+                        </button>
+                        <button
                           onClick={() => handleDelete(row)}
                           aria-label="Delete"
                           className="flex size-8 items-center justify-center rounded-lg text-foreground/50 hover:bg-red-500/10 hover:text-red-500"
@@ -161,6 +216,54 @@ export default function SubmissionsManager({
                 <dd className="mt-0.5 text-sm text-foreground">{formatDate(viewing.createdAt)}</dd>
               </div>
             </dl>
+          </div>
+        </div>
+      )}
+
+      {composing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-background p-6 shadow-2xl">
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="font-heading text-lg font-semibold text-foreground">
+                Message {String(composing.name ?? "")}
+              </h2>
+              <button onClick={closeCompose} aria-label="Close" className="text-foreground/50 hover:text-foreground">
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-foreground">Subject</label>
+                <input
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  className="w-full rounded-xl border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none focus:border-navy"
+                />
+                <p className="mt-1 text-xs text-foreground/50">Used for Email only — WhatsApp sends the message below.</p>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-foreground">Message</label>
+                <textarea
+                  rows={6}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  className="w-full rounded-xl border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none focus:border-navy"
+                />
+              </div>
+            </div>
+
+            {sendError && <p className="mt-3 text-sm text-red-500">{sendError}</p>}
+
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="ghost" onClick={closeCompose}>Cancel</Button>
+              <Button variant="secondary" icon={MessageCircle} onClick={handleSendWhatsApp} disabled={!String(composing.phone ?? "")}>
+                WhatsApp
+              </Button>
+              <Button icon={Mail} onClick={handleSendEmail} disabled={sending || !String(composing.email ?? "")}>
+                {sending ? <Loader2 className="size-4 animate-spin" /> : "Send Email"}
+              </Button>
+            </div>
           </div>
         </div>
       )}

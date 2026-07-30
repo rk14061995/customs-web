@@ -130,6 +130,81 @@ export function renderPaymentLinkEmailHtml(
   `;
 }
 
+/** A free-form message typed by an admin (e.g. replying to a quote request or contact enquiry). */
+export function renderAdminMessageEmailHtml(name: string, message: string) {
+  const greetName = name.split(" ")[0] || name;
+  return `
+    <div style="font-family:sans-serif;max-width:560px;margin:0 auto;">
+      <div style="background:#0b3c91;color:#fff;padding:20px 24px;border-radius:12px 12px 0 0;">
+        <h2 style="margin:0;font-size:18px;">Rana Forwarder</h2>
+      </div>
+      <div style="background:#f8fafc;padding:20px 24px;border-radius:0 0 12px 12px;">
+        ${greetName ? `<p style="margin:0 0 12px;color:#1f2937;font-size:14px;">Hi ${escapeHtml(greetName)},</p>` : ""}
+        <p style="margin:0;color:#1f2937;font-size:14px;white-space:pre-wrap;">${escapeHtml(message)}</p>
+      </div>
+    </div>
+  `;
+}
+
+/** The full itemized breakdown of a quotation, sent directly to the customer. */
+export function renderQuotationEmailHtml({
+  quoteNumber,
+  customerName,
+  origin,
+  destination,
+  serviceType,
+  weightKg,
+  currency,
+  charges,
+  subtotal,
+  taxRate,
+  taxAmount,
+  total,
+  notes,
+}: {
+  quoteNumber: string;
+  customerName: string;
+  origin: string;
+  destination: string;
+  serviceType: string;
+  weightKg: number;
+  currency: string;
+  charges: { label: string; amount: number }[];
+  subtotal: number;
+  taxRate: number;
+  taxAmount: number;
+  total: number;
+  notes?: string;
+}) {
+  const chargeRows = charges
+    .map(
+      (c) =>
+        `<tr><td style="padding:6px 12px;color:#1f2937;font-size:14px;">${escapeHtml(c.label)}</td><td style="padding:6px 12px;text-align:right;color:#1f2937;font-size:14px;">${escapeHtml(currency)} ${c.amount.toLocaleString()}</td></tr>`
+    )
+    .join("");
+
+  return `
+    <div style="font-family:sans-serif;max-width:560px;margin:0 auto;">
+      <div style="background:#0b3c91;color:#fff;padding:20px 24px;border-radius:12px 12px 0 0;">
+        <h2 style="margin:0;font-size:18px;">Quotation ${escapeHtml(quoteNumber)}</h2>
+      </div>
+      <div style="background:#f8fafc;padding:20px 24px;border-radius:0 0 12px 12px;">
+        <p style="margin:0 0 16px;color:#1f2937;font-size:14px;">
+          Hi ${escapeHtml(customerName.split(" ")[0] || customerName)}, here is your quotation for
+          ${escapeHtml(origin)} → ${escapeHtml(destination)} (${escapeHtml(serviceType)}, ${weightKg}kg).
+        </p>
+        <table style="width:100%;border-collapse:collapse;">${chargeRows}</table>
+        <table style="width:100%;border-collapse:collapse;margin-top:12px;border-top:1px solid #e2e8f0;">
+          <tr><td style="padding:8px 12px 4px;color:#64748b;font-size:13px;">Subtotal</td><td style="padding:8px 12px 4px;text-align:right;color:#64748b;font-size:13px;">${escapeHtml(currency)} ${subtotal.toLocaleString()}</td></tr>
+          <tr><td style="padding:4px 12px;color:#64748b;font-size:13px;">GST / Tax (${taxRate}%)</td><td style="padding:4px 12px;text-align:right;color:#64748b;font-size:13px;">${escapeHtml(currency)} ${taxAmount.toLocaleString()}</td></tr>
+          <tr><td style="padding:8px 12px 4px;font-weight:700;color:#0b3c91;font-size:15px;">Total</td><td style="padding:8px 12px 4px;text-align:right;font-weight:700;color:#0b3c91;font-size:15px;">${escapeHtml(currency)} ${total.toLocaleString()}</td></tr>
+        </table>
+        ${notes ? `<p style="margin-top:16px;color:#1f2937;font-size:13px;"><strong>Notes:</strong> ${escapeHtml(notes)}</p>` : ""}
+      </div>
+    </div>
+  `;
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
