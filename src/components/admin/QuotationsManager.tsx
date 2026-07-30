@@ -70,7 +70,9 @@ const emptyForm = {
   origin: "",
   destination: "",
   serviceType: SERVICE_TYPES[0],
+  weightMode: "perBox" as "perBox" | "total",
   weightPerBoxKg: 0,
+  totalWeightKg: 0,
   quantity: 1,
   dimensions: "",
   charges: defaultCharges,
@@ -124,11 +126,14 @@ export default function QuotationsManager() {
     [customers]
   );
 
-  const totalWeightKg = formValues.weightPerBoxKg * formValues.quantity;
+  const effectiveWeightKg =
+    formValues.weightMode === "total"
+      ? formValues.totalWeightKg
+      : formValues.weightPerBoxKg * formValues.quantity;
 
   const formTotals = useMemo(
-    () => computeQuotationTotals(formValues.charges, totalWeightKg, formValues.taxRate),
-    [formValues.charges, totalWeightKg, formValues.taxRate]
+    () => computeQuotationTotals(formValues.charges, effectiveWeightKg, formValues.taxRate),
+    [formValues.charges, effectiveWeightKg, formValues.taxRate]
   );
 
   const openCreate = () => {
@@ -145,7 +150,9 @@ export default function QuotationsManager() {
       origin: row.origin,
       destination: row.destination,
       serviceType: row.serviceType,
+      weightMode: "perBox",
       weightPerBoxKg: (row.quantity ?? 1) ? row.weightKg / (row.quantity ?? 1) : row.weightKg,
+      totalWeightKg: row.weightKg,
       quantity: row.quantity ?? 1,
       dimensions: row.dimensions ?? "",
       charges: row.charges.length ? row.charges : defaultCharges,
@@ -182,10 +189,10 @@ export default function QuotationsManager() {
     setSaving(true);
     setError("");
     try {
-      const { weightPerBoxKg, ...rest } = formValues;
+      const { weightMode, weightPerBoxKg, totalWeightKg, ...rest } = formValues;
       const payload: Record<string, unknown> = {
         ...rest,
-        weightKg: weightPerBoxKg * formValues.quantity,
+        weightKg: effectiveWeightKg,
         charges: formValues.charges.filter((c) => c.label.trim() !== ""),
       };
       if (!editing) delete payload.status;
@@ -405,19 +412,49 @@ export default function QuotationsManager() {
               </div>
 
               <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Weight per Box (kg) <span className="text-orange">*</span>
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={formValues.weightPerBoxKg}
-                  onChange={(e) => setFormValues((v) => ({ ...v, weightPerBoxKg: Number(e.target.value) }))}
-                  className="w-full rounded-xl border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none focus:border-navy"
-                />
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label className="block text-sm font-medium text-foreground">
+                    {formValues.weightMode === "total" ? "Total Weight (kg)" : "Weight per Box (kg)"}{" "}
+                    <span className="text-orange">*</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs font-medium text-foreground/70">
+                    <input
+                      type="checkbox"
+                      checked={formValues.weightMode === "total"}
+                      onChange={(e) =>
+                        setFormValues((v) => ({
+                          ...v,
+                          weightMode: e.target.checked ? "total" : "perBox",
+                        }))
+                      }
+                      className="size-3.5 rounded border-border-subtle accent-navy"
+                    />
+                    Boxes have different weights
+                  </label>
+                </div>
+                {formValues.weightMode === "total" ? (
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={formValues.totalWeightKg}
+                    onChange={(e) => setFormValues((v) => ({ ...v, totalWeightKg: Number(e.target.value) }))}
+                    className="w-full rounded-xl border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none focus:border-navy"
+                  />
+                ) : (
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={formValues.weightPerBoxKg}
+                    onChange={(e) => setFormValues((v) => ({ ...v, weightPerBoxKg: Number(e.target.value) }))}
+                    className="w-full rounded-xl border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none focus:border-navy"
+                  />
+                )}
                 <p className="mt-1 text-xs text-foreground/50">
-                  × {formValues.quantity} box{formValues.quantity === 1 ? "" : "es"} = {totalWeightKg.toLocaleString()} kg total, used to compute any charges billed per kg.
+                  {formValues.weightMode === "total"
+                    ? `Entered directly since box weights vary. ${effectiveWeightKg.toLocaleString()} kg total, used to compute any charges billed per kg.`
+                    : `× ${formValues.quantity} box${formValues.quantity === 1 ? "" : "es"} = ${effectiveWeightKg.toLocaleString()} kg total, used to compute any charges billed per kg.`}
                 </p>
               </div>
 
@@ -535,7 +572,7 @@ export default function QuotationsManager() {
                       className="w-28 shrink-0 rounded-xl border border-border-subtle bg-background px-3 py-2.5 text-sm outline-none focus:border-navy"
                     />
                     <span className="w-24 shrink-0 text-right text-sm text-foreground/60">
-                      {formValues.currency} {computeChargeAmount(charge, totalWeightKg, formTotals.baseAmount).toLocaleString()}
+                      {formValues.currency} {computeChargeAmount(charge, effectiveWeightKg, formTotals.baseAmount).toLocaleString()}
                     </span>
                     <button
                       onClick={() => removeCharge(i)}
