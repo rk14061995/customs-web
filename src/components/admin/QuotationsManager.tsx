@@ -70,7 +70,7 @@ const emptyForm = {
   origin: "",
   destination: "",
   serviceType: SERVICE_TYPES[0],
-  weightKg: 0,
+  weightPerBoxKg: 0,
   quantity: 1,
   dimensions: "",
   charges: defaultCharges,
@@ -124,9 +124,11 @@ export default function QuotationsManager() {
     [customers]
   );
 
+  const totalWeightKg = formValues.weightPerBoxKg * formValues.quantity;
+
   const formTotals = useMemo(
-    () => computeQuotationTotals(formValues.charges, formValues.weightKg, formValues.taxRate),
-    [formValues.charges, formValues.weightKg, formValues.taxRate]
+    () => computeQuotationTotals(formValues.charges, totalWeightKg, formValues.taxRate),
+    [formValues.charges, totalWeightKg, formValues.taxRate]
   );
 
   const openCreate = () => {
@@ -143,7 +145,7 @@ export default function QuotationsManager() {
       origin: row.origin,
       destination: row.destination,
       serviceType: row.serviceType,
-      weightKg: row.weightKg,
+      weightPerBoxKg: (row.quantity ?? 1) ? row.weightKg / (row.quantity ?? 1) : row.weightKg,
       quantity: row.quantity ?? 1,
       dimensions: row.dimensions ?? "",
       charges: row.charges.length ? row.charges : defaultCharges,
@@ -180,8 +182,10 @@ export default function QuotationsManager() {
     setSaving(true);
     setError("");
     try {
+      const { weightPerBoxKg, ...rest } = formValues;
       const payload: Record<string, unknown> = {
-        ...formValues,
+        ...rest,
+        weightKg: weightPerBoxKg * formValues.quantity,
         charges: formValues.charges.filter((c) => c.label.trim() !== ""),
       };
       if (!editing) delete payload.status;
@@ -402,17 +406,19 @@ export default function QuotationsManager() {
 
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Weight (kg) <span className="text-orange">*</span>
+                  Weight per Box (kg) <span className="text-orange">*</span>
                 </label>
                 <input
                   type="number"
                   min={0}
                   step="0.01"
-                  value={formValues.weightKg}
-                  onChange={(e) => setFormValues((v) => ({ ...v, weightKg: Number(e.target.value) }))}
+                  value={formValues.weightPerBoxKg}
+                  onChange={(e) => setFormValues((v) => ({ ...v, weightPerBoxKg: Number(e.target.value) }))}
                   className="w-full rounded-xl border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none focus:border-navy"
                 />
-                <p className="mt-1 text-xs text-foreground/50">Used to compute any charges billed per kg.</p>
+                <p className="mt-1 text-xs text-foreground/50">
+                  × {formValues.quantity} box{formValues.quantity === 1 ? "" : "es"} = {totalWeightKg.toLocaleString()} kg total, used to compute any charges billed per kg.
+                </p>
               </div>
 
               <div>
@@ -529,7 +535,7 @@ export default function QuotationsManager() {
                       className="w-28 shrink-0 rounded-xl border border-border-subtle bg-background px-3 py-2.5 text-sm outline-none focus:border-navy"
                     />
                     <span className="w-24 shrink-0 text-right text-sm text-foreground/60">
-                      {formValues.currency} {computeChargeAmount(charge, formValues.weightKg, formTotals.baseAmount).toLocaleString()}
+                      {formValues.currency} {computeChargeAmount(charge, totalWeightKg, formTotals.baseAmount).toLocaleString()}
                     </span>
                     <button
                       onClick={() => removeCharge(i)}

@@ -56,10 +56,12 @@ export async function sendCustomerConfirmationEmail({
   to,
   subject,
   html,
+  attachments,
 }: {
   to: string;
   subject: string;
   html: string;
+  attachments?: { filename: string; content: Buffer; contentType?: string }[];
 }) {
   const user = process.env.GMAIL_USER;
   const transporter = getTransporter();
@@ -69,6 +71,7 @@ export async function sendCustomerConfirmationEmail({
     to,
     subject,
     html,
+    attachments,
   });
 }
 
@@ -146,14 +149,21 @@ export function renderAdminMessageEmailHtml(name: string, message: string) {
   `;
 }
 
-/** The full itemized breakdown of a quotation, sent directly to the customer. */
+/** The full itemized breakdown of a quotation, mirroring the admin "view quotation" print page, sent directly to the customer. */
 export function renderQuotationEmailHtml({
   quoteNumber,
+  createdAt,
   customerName,
+  customerCompany,
+  customerEmail,
+  customerPhone,
   origin,
   destination,
   serviceType,
   weightKg,
+  quantity,
+  dimensions,
+  validUntil,
   currency,
   charges,
   subtotal,
@@ -161,46 +171,102 @@ export function renderQuotationEmailHtml({
   taxAmount,
   total,
   notes,
+  companyEmail,
+  companyPhone,
 }: {
   quoteNumber: string;
+  createdAt: Date | string;
   customerName: string;
+  customerCompany?: string;
+  customerEmail?: string;
+  customerPhone?: string;
   origin: string;
   destination: string;
   serviceType: string;
   weightKg: number;
+  quantity: number;
+  dimensions?: string;
+  validUntil?: string;
   currency: string;
-  charges: { label: string; amount: number }[];
+  charges: { label: string; basisLabel: string; amount: number }[];
   subtotal: number;
   taxRate: number;
   taxAmount: number;
   total: number;
   notes?: string;
+  companyEmail?: string;
+  companyPhone?: string;
 }) {
   const chargeRows = charges
     .map(
       (c) =>
-        `<tr><td style="padding:6px 12px;color:#1f2937;font-size:14px;">${escapeHtml(c.label)}</td><td style="padding:6px 12px;text-align:right;color:#1f2937;font-size:14px;">${escapeHtml(currency)} ${c.amount.toLocaleString()}</td></tr>`
+        `<tr>
+          <td style="padding:8px 0;border-bottom:1px solid #e2e8f0;color:#1f2937;font-size:13px;">${escapeHtml(c.label)}</td>
+          <td style="padding:8px 0;border-bottom:1px solid #e2e8f0;color:#64748b;font-size:12px;text-align:right;">${escapeHtml(c.basisLabel)}</td>
+          <td style="padding:8px 0;border-bottom:1px solid #e2e8f0;color:#1f2937;font-size:13px;text-align:right;">${escapeHtml(currency)} ${c.amount.toLocaleString()}</td>
+        </tr>`
     )
     .join("");
 
+  const shipmentLine = `${weightKg}kg · ${quantity} box${quantity === 1 ? "" : "es"}${dimensions ? ` · ${escapeHtml(dimensions)}` : ""}`;
+
   return `
-    <div style="font-family:sans-serif;max-width:560px;margin:0 auto;">
-      <div style="background:#0b3c91;color:#fff;padding:20px 24px;border-radius:12px 12px 0 0;">
-        <h2 style="margin:0;font-size:18px;">Quotation ${escapeHtml(quoteNumber)}</h2>
-      </div>
-      <div style="background:#f8fafc;padding:20px 24px;border-radius:0 0 12px 12px;">
-        <p style="margin:0 0 16px;color:#1f2937;font-size:14px;">
-          Hi ${escapeHtml(customerName.split(" ")[0] || customerName)}, here is your quotation for
-          ${escapeHtml(origin)} → ${escapeHtml(destination)} (${escapeHtml(serviceType)}, ${weightKg}kg).
-        </p>
-        <table style="width:100%;border-collapse:collapse;">${chargeRows}</table>
-        <table style="width:100%;border-collapse:collapse;margin-top:12px;border-top:1px solid #e2e8f0;">
-          <tr><td style="padding:8px 12px 4px;color:#64748b;font-size:13px;">Subtotal</td><td style="padding:8px 12px 4px;text-align:right;color:#64748b;font-size:13px;">${escapeHtml(currency)} ${subtotal.toLocaleString()}</td></tr>
-          <tr><td style="padding:4px 12px;color:#64748b;font-size:13px;">GST / Tax (${taxRate}%)</td><td style="padding:4px 12px;text-align:right;color:#64748b;font-size:13px;">${escapeHtml(currency)} ${taxAmount.toLocaleString()}</td></tr>
-          <tr><td style="padding:8px 12px 4px;font-weight:700;color:#0b3c91;font-size:15px;">Total</td><td style="padding:8px 12px 4px;text-align:right;font-weight:700;color:#0b3c91;font-size:15px;">${escapeHtml(currency)} ${total.toLocaleString()}</td></tr>
-        </table>
-        ${notes ? `<p style="margin-top:16px;color:#1f2937;font-size:13px;"><strong>Notes:</strong> ${escapeHtml(notes)}</p>` : ""}
-      </div>
+    <div style="font-family:sans-serif;max-width:640px;margin:0 auto;color:#1f2937;">
+      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;border-bottom:1px solid #e2e8f0;padding-bottom:20px;">
+        <tr>
+          <td style="vertical-align:top;">
+            <p style="margin:0;font-size:18px;font-weight:700;color:#0b3c91;">Rana Forwarder</p>
+            <p style="margin:2px 0 0;font-size:12px;color:#64748b;">Logistics &amp; Freight Forwarding</p>
+            ${companyEmail ? `<p style="margin:4px 0 0;font-size:11px;color:#64748b;">${escapeHtml(companyEmail)}</p>` : ""}
+            ${companyPhone ? `<p style="margin:0;font-size:11px;color:#64748b;">${escapeHtml(companyPhone)}</p>` : ""}
+          </td>
+          <td style="vertical-align:top;text-align:right;">
+            <p style="margin:0;font-size:15px;font-weight:700;">QUOTATION</p>
+            <p style="margin:2px 0 0;font-size:12px;color:#64748b;">${escapeHtml(quoteNumber)}</p>
+            <p style="margin:0;font-size:12px;color:#64748b;">${new Date(createdAt).toLocaleDateString()}</p>
+          </td>
+        </tr>
+      </table>
+
+      <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+        <tr>
+          <td style="width:50%;vertical-align:top;padding-right:12px;">
+            <p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;">Billed To</p>
+            <p style="margin:0;font-size:13px;font-weight:600;">${escapeHtml(customerName)}</p>
+            ${customerCompany ? `<p style="margin:0;font-size:13px;">${escapeHtml(customerCompany)}</p>` : ""}
+            ${customerEmail ? `<p style="margin:0;font-size:13px;">${escapeHtml(customerEmail)}</p>` : ""}
+            ${customerPhone ? `<p style="margin:0;font-size:13px;">${escapeHtml(customerPhone)}</p>` : ""}
+          </td>
+          <td style="width:50%;vertical-align:top;padding-left:12px;">
+            <p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;">Shipment Details</p>
+            <p style="margin:0;font-size:13px;">${escapeHtml(origin)} → ${escapeHtml(destination)}</p>
+            <p style="margin:0;font-size:13px;">${escapeHtml(serviceType)}</p>
+            <p style="margin:0;font-size:13px;">${shipmentLine}</p>
+            ${validUntil ? `<p style="margin:0;font-size:13px;">Valid until ${escapeHtml(validUntil)}</p>` : ""}
+          </td>
+        </tr>
+      </table>
+
+      <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+        <thead>
+          <tr>
+            <th style="padding:0 0 8px;border-bottom:1px solid #cbd5e1;text-align:left;font-size:11px;color:#64748b;">Charge</th>
+            <th style="padding:0 0 8px;border-bottom:1px solid #cbd5e1;text-align:right;font-size:11px;color:#64748b;">Basis</th>
+            <th style="padding:0 0 8px;border-bottom:1px solid #cbd5e1;text-align:right;font-size:11px;color:#64748b;">Amount</th>
+          </tr>
+        </thead>
+        <tbody>${chargeRows}</tbody>
+      </table>
+
+      <table style="width:100%;max-width:260px;margin:0 0 0 auto;border-collapse:collapse;">
+        <tr><td style="padding:3px 0;color:#64748b;font-size:13px;">Subtotal</td><td style="padding:3px 0;text-align:right;color:#64748b;font-size:13px;">${escapeHtml(currency)} ${subtotal.toLocaleString()}</td></tr>
+        <tr><td style="padding:3px 0;color:#64748b;font-size:13px;">GST / Tax (${taxRate}%)</td><td style="padding:3px 0;text-align:right;color:#64748b;font-size:13px;">${escapeHtml(currency)} ${taxAmount.toLocaleString()}</td></tr>
+        <tr><td style="padding:6px 0 0;border-top:1px solid #cbd5e1;font-weight:700;color:#0b3c91;font-size:15px;">Total</td><td style="padding:6px 0 0;border-top:1px solid #cbd5e1;text-align:right;font-weight:700;color:#0b3c91;font-size:15px;">${escapeHtml(currency)} ${total.toLocaleString()}</td></tr>
+      </table>
+
+      ${notes ? `<p style="margin-top:20px;padding-top:12px;border-top:1px solid #e2e8f0;color:#1f2937;font-size:12px;"><strong>Notes:</strong> ${escapeHtml(notes)}</p>` : ""}
+
+      <p style="margin-top:24px;color:#64748b;font-size:12px;">A PDF copy of this quotation is attached.</p>
     </div>
   `;
 }

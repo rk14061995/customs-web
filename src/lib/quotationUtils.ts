@@ -31,3 +31,14 @@ export function computeQuotationTotals(
   const total = subtotal + taxAmount;
   return { subtotal, taxAmount, total, baseAmount };
 }
+
+/** Human-readable description of how a charge line is calculated, e.g. "INR 273.10/kg × 127kg", "18%", "Flat". */
+export function formatChargeBasis(
+  charge: Pick<IQuoteCharge, "basis" | "rate">,
+  currency: string,
+  weightKg: number
+) {
+  if (charge.basis === "per_kg") return `${currency} ${charge.rate}/kg × ${weightKg}kg`;
+  if (charge.basis === "percent") return `${charge.rate}%`;
+  return "Flat";
+}
