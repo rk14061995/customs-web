@@ -57,7 +57,9 @@ export async function buildQuotationEmail(id: string) {
     total: quotation.total,
     notes: quotation.notes,
     companyEmail: settings?.email,
-    companyPhone: settings?.phone,
+    companyPhone: settings?.alternatePhone
+      ? `${settings.phone} / ${settings.alternatePhone}`
+      : settings?.phone,
   };
 
   return {
