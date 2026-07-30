@@ -1,6 +1,6 @@
 import { Schema, model, models, Types, type Document } from "mongoose";
 
-export const CHARGE_BASES = ["flat", "per_kg"] as const;
+export const CHARGE_BASES = ["flat", "per_kg", "percent"] as const;
 
 export interface IQuoteCharge {
   label: string;

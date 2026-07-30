@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Pencil, Trash2, X, Loader2, Search, Eye, Printer } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Loader2, Search, Eye } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { computeChargeAmount, computeQuotationTotals } from "@/lib/quotationUtils";
 
@@ -20,9 +20,10 @@ const QUOTATION_STATUSES = ["draft", "sent", "accepted", "rejected", "expired"];
 
 const CURRENCIES = ["INR", "USD", "EUR", "GBP", "AED"];
 
-const CHARGE_BASES: { value: "flat" | "per_kg"; label: string }[] = [
+const CHARGE_BASES: { value: "flat" | "per_kg" | "percent"; label: string }[] = [
   { value: "per_kg", label: "Per Kg" },
   { value: "flat", label: "Flat" },
+  { value: "percent", label: "Percent (%)" },
 ];
 
 const statusColor: Record<string, string> = {
@@ -34,7 +35,7 @@ const statusColor: Record<string, string> = {
 };
 
 type Customer = { _id: string; name: string; company?: string };
-type Charge = { label: string; basis: "flat" | "per_kg"; rate: number };
+type Charge = { label: string; basis: "flat" | "per_kg" | "percent"; rate: number };
 type Quotation = {
   _id: string;
   quoteNumber: string;
@@ -59,7 +60,8 @@ type Quotation = {
 
 const defaultCharges: Charge[] = [
   { label: "Freight", basis: "per_kg", rate: 0 },
-  { label: "Fuel Surcharge", basis: "per_kg", rate: 0 },
+  { label: "Fuel Charge", basis: "percent", rate: 0 },
+  { label: "Demand Charge", basis: "percent", rate: 0 },
   { label: "Other Surcharge", basis: "flat", rate: 0 },
 ];
 
@@ -91,8 +93,6 @@ export default function QuotationsManager() {
   const [formValues, setFormValues] = useState<typeof emptyForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-
-  const [viewing, setViewing] = useState<Quotation | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -217,7 +217,7 @@ export default function QuotationsManager() {
         <div>
           <h1 className="font-heading text-2xl font-bold text-foreground">Quotations</h1>
           <p className="mt-1 text-sm text-foreground/60">
-            Build itemized price quotes for shipments — freight, fuel surcharge, and any other charges.
+            Build itemized price quotes for shipments — freight, fuel charge, demand charge, and any other charges.
           </p>
         </div>
         <Button icon={Plus} onClick={openCreate}>
@@ -304,7 +304,7 @@ export default function QuotationsManager() {
                     <td className="px-5 py-3">
                       <div className="flex justify-end gap-2">
                         <button
-                          onClick={() => setViewing(row)}
+                          onClick={() => window.open(`/admin/quotations/${row._id}/print`, "_blank")}
                           aria-label="View"
                           className="flex size-8 items-center justify-center rounded-lg text-foreground/50 hover:bg-navy/10 hover:text-navy"
                         >
@@ -333,119 +333,6 @@ export default function QuotationsManager() {
           </table>
         </div>
       </div>
-
-      {viewing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-background p-6 shadow-2xl">
-            <div className="mb-5 flex items-start justify-between">
-              <div>
-                <h2 className="font-heading text-lg font-semibold text-foreground">{viewing.quoteNumber}</h2>
-                <span className={`mt-1 inline-block rounded-full px-3 py-1 text-xs font-semibold capitalize ${statusColor[viewing.status] ?? "bg-foreground/10"}`}>
-                  {viewing.status}
-                </span>
-              </div>
-              <button onClick={() => setViewing(null)} aria-label="Close" className="text-foreground/50 hover:text-foreground">
-                <X className="size-5" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-              <div>
-                <p className="text-foreground/50">Customer</p>
-                <p className="font-medium text-foreground">{viewing.customer?.name ?? "—"}</p>
-              </div>
-              <div>
-                <p className="text-foreground/50">Service Type</p>
-                <p className="font-medium text-foreground">{viewing.serviceType}</p>
-              </div>
-              <div>
-                <p className="text-foreground/50">Route</p>
-                <p className="font-medium text-foreground">{viewing.origin} → {viewing.destination}</p>
-              </div>
-              <div>
-                <p className="text-foreground/50">Weight</p>
-                <p className="font-medium text-foreground">{viewing.weightKg} kg</p>
-              </div>
-              <div>
-                <p className="text-foreground/50">Quantity (Boxes)</p>
-                <p className="font-medium text-foreground">{viewing.quantity ?? 1}</p>
-              </div>
-              {viewing.dimensions && (
-                <div>
-                  <p className="text-foreground/50">Dimensions</p>
-                  <p className="font-medium text-foreground">{viewing.dimensions}</p>
-                </div>
-              )}
-              {viewing.validUntil && (
-                <div>
-                  <p className="text-foreground/50">Valid Until</p>
-                  <p className="font-medium text-foreground">{viewing.validUntil}</p>
-                </div>
-              )}
-            </div>
-
-            <div className="mt-5 border-t border-border-subtle pt-4">
-              <p className="mb-2 text-sm font-medium text-foreground">Charges</p>
-              <div className="space-y-1.5 text-sm">
-                {viewing.charges.map((charge, i) => (
-                  <div key={i} className="flex items-center justify-between text-foreground/80">
-                    <span>
-                      {charge.label}
-                      {charge.basis === "per_kg" && (
-                        <span className="text-foreground/50"> ({viewing.currency} {charge.rate}/kg × {viewing.weightKg}kg)</span>
-                      )}
-                    </span>
-                    <span>{viewing.currency} {computeChargeAmount(charge, viewing.weightKg).toLocaleString()}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-3 space-y-1.5 border-t border-border-subtle pt-3 text-sm">
-                <div className="flex items-center justify-between text-foreground/60">
-                  <span>Subtotal</span>
-                  <span>{viewing.currency} {viewing.subtotal.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center justify-between text-foreground/60">
-                  <span>GST / Tax ({viewing.taxRate}%)</span>
-                  <span>{viewing.currency} {viewing.taxAmount.toLocaleString()}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-foreground">Total</span>
-                  <span className="font-heading text-lg font-bold text-foreground">
-                    {viewing.currency} {viewing.total.toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {viewing.notes && (
-              <div className="mt-4 border-t border-border-subtle pt-4">
-                <p className="mb-1 text-sm font-medium text-foreground">Notes</p>
-                <p className="text-sm text-foreground/70">{viewing.notes}</p>
-              </div>
-            )}
-
-            <div className="mt-6 flex justify-end gap-3">
-              <Button variant="ghost" onClick={() => setViewing(null)}>Close</Button>
-              <Button
-                variant="ghost"
-                icon={Printer}
-                onClick={() => window.open(`/admin/quotations/${viewing._id}/print`, "_blank")}
-              >
-                Print PDF
-              </Button>
-              <Button
-                onClick={() => {
-                  const row = viewing;
-                  setViewing(null);
-                  openEdit(row);
-                }}
-              >
-                Edit
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -620,7 +507,7 @@ export default function QuotationsManager() {
                     <input
                       value={charge.label}
                       onChange={(e) => updateCharge(i, "label", e.target.value)}
-                      placeholder="e.g. Freight, Fuel Surcharge, Customs"
+                      placeholder="e.g. Freight, Fuel Charge, Demand Charge"
                       className="flex-1 rounded-xl border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none focus:border-navy"
                     />
                     <select
@@ -636,11 +523,13 @@ export default function QuotationsManager() {
                       type="number"
                       value={charge.rate}
                       onChange={(e) => updateCharge(i, "rate", e.target.value)}
-                      placeholder={charge.basis === "per_kg" ? "Rate / kg" : "Amount"}
+                      placeholder={
+                        charge.basis === "per_kg" ? "Rate / kg" : charge.basis === "percent" ? "Rate %" : "Amount"
+                      }
                       className="w-28 shrink-0 rounded-xl border border-border-subtle bg-background px-3 py-2.5 text-sm outline-none focus:border-navy"
                     />
                     <span className="w-24 shrink-0 text-right text-sm text-foreground/60">
-                      {formValues.currency} {computeChargeAmount(charge, formValues.weightKg).toLocaleString()}
+                      {formValues.currency} {computeChargeAmount(charge, formValues.weightKg, formTotals.baseAmount).toLocaleString()}
                     </span>
                     <button
                       onClick={() => removeCharge(i)}

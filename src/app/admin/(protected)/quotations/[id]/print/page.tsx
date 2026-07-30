@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Loader2, Printer } from "lucide-react";
 import Button from "@/components/ui/Button";
-import { computeChargeAmount } from "@/lib/quotationUtils";
+import { computeChargeAmount, computeQuotationTotals } from "@/lib/quotationUtils";
 
-type Charge = { label: string; basis: "flat" | "per_kg"; rate: number };
+type Charge = { label: string; basis: "flat" | "per_kg" | "percent"; rate: number };
+type Settings = { phone: string; alternatePhone?: string; address: string };
 type Quotation = {
   _id: string;
   quoteNumber: string;
@@ -32,12 +33,20 @@ type Quotation = {
 export default function QuotationPrintPage() {
   const { id } = useParams<{ id: string }>();
   const [quotation, setQuotation] = useState<Quotation | null>(null);
+  const [settings, setSettings] = useState<Settings | null>(null);
 
   useEffect(() => {
     fetch(`/api/admin/quotations/${id}`)
       .then((res) => res.json())
       .then(setQuotation);
+    fetch("/api/admin/settings")
+      .then((res) => res.json())
+      .then(setSettings);
   }, [id]);
+
+  useEffect(() => {
+    if (quotation) document.title = `Quotation ${quotation.quoteNumber} - Rana Forwarder`;
+  }, [quotation]);
 
   if (!quotation) {
     return (
@@ -46,6 +55,8 @@ export default function QuotationPrintPage() {
       </div>
     );
   }
+
+  const { baseAmount } = computeQuotationTotals(quotation.charges, quotation.weightKg, quotation.taxRate);
 
   return (
     <div className="mx-auto max-w-3xl bg-white p-10 text-slate-900 print:p-0">
@@ -61,6 +72,13 @@ export default function QuotationPrintPage() {
         <div>
           <p className="font-heading text-xl font-bold text-navy">Rana Forwarder</p>
           <p className="text-sm text-slate-500">Logistics & Freight Forwarding</p>
+          {settings?.address && <p className="mt-1 text-xs text-slate-500">{settings.address}</p>}
+          {settings?.phone && (
+            <p className="text-xs text-slate-500">
+              {settings.phone}
+              {settings.alternatePhone ? ` / ${settings.alternatePhone}` : ""}
+            </p>
+          )}
         </div>
         <div className="text-right">
           <p className="font-heading text-lg font-bold">QUOTATION</p>
@@ -102,10 +120,14 @@ export default function QuotationPrintPage() {
             <tr key={i} className="border-b border-slate-100">
               <td className="py-2">{charge.label}</td>
               <td className="py-2 text-right text-slate-500">
-                {charge.basis === "per_kg" ? `${quotation.currency} ${charge.rate}/kg × ${quotation.weightKg}kg` : "Flat"}
+                {charge.basis === "per_kg"
+                  ? `${quotation.currency} ${charge.rate}/kg × ${quotation.weightKg}kg`
+                  : charge.basis === "percent"
+                    ? `${charge.rate}%`
+                    : "Flat"}
               </td>
               <td className="py-2 text-right">
-                {quotation.currency} {computeChargeAmount(charge, quotation.weightKg).toLocaleString()}
+                {quotation.currency} {computeChargeAmount(charge, quotation.weightKg, baseAmount).toLocaleString()}
               </td>
             </tr>
           ))}
