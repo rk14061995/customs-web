@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Loader2, Plus, Trash2, Eye } from "lucide-react";
 import Button from "@/components/ui/Button";
 import AgreementPreviewModal from "@/components/admin/AgreementPreviewModal";
+import ClauseEditor from "@/components/admin/ClauseEditor";
 import { formatDate } from "@/lib/utils";
 
 const inputClass =
@@ -172,20 +173,15 @@ export default function AgreementsManager() {
 
             <div>
               <label className="mb-1.5 block text-sm font-medium text-foreground">Clauses</label>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {template.clauses.map((clause, i) => (
                   <div key={i} className="flex items-start gap-2">
-                    <span className="mt-2.5 text-sm text-foreground/50">{i + 1}.</span>
-                    <textarea
-                      rows={2}
-                      value={clause}
-                      onChange={(e) => updateClause(i, e.target.value)}
-                      className={inputClass}
-                    />
+                    <span className="mt-2 text-sm text-foreground/50">{i + 1}.</span>
+                    <ClauseEditor value={clause} onChange={(html) => updateClause(i, html)} />
                     <button
                       onClick={() => removeClause(i)}
                       aria-label="Remove clause"
-                      className="mt-2 flex size-8 shrink-0 items-center justify-center rounded-lg text-foreground/50 hover:bg-red-500/10 hover:text-red-500"
+                      className="mt-8 flex size-8 shrink-0 items-center justify-center rounded-lg text-foreground/50 hover:bg-red-500/10 hover:text-red-500"
                     >
                       <Trash2 className="size-4" />
                     </button>

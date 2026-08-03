@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/dbConnect";
 import Agreement from "@/models/Agreement";
 import Shipment from "@/models/Shipment";
@@ -8,7 +8,7 @@ import { getAdminSession } from "@/lib/auth";
 import { generateAgreementPdf } from "@/lib/agreementPdf";
 
 export async function GET(
-  _req: Request,
+  req: NextRequest,
   { params }: { params: Promise<{ shipmentId: string }> }
 ) {
   const session = await getAdminSession();
@@ -16,6 +16,7 @@ export async function GET(
 
   await dbConnect();
   const { shipmentId } = await params;
+  const timeZone = req.nextUrl.searchParams.get("tz") || undefined;
 
   const agreement = await Agreement.findOne({ shipment: shipmentId });
   if (!agreement) return NextResponse.json({ error: "Agreement not found" }, { status: 404 });
@@ -30,6 +31,7 @@ export async function GET(
     customerPhone: shipment.customer?.phone,
     trackingNumber: shipment.trackingNumber,
     signature: agreement.signature,
+    timeZone,
   });
 
   return new NextResponse(new Uint8Array(pdf), {

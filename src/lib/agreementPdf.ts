@@ -1,5 +1,7 @@
 import PDFDocument from "pdfkit";
 import type { IAgreementTemplateSnapshot, IAgreementSignature } from "@/models/Agreement";
+import { formatDate, formatDateTime } from "@/lib/utils";
+import { legacyMarkersToHtml, htmlToRuns } from "@/lib/richText";
 
 const GRAY = "#64748b";
 const DARK = "#1f2937";
@@ -10,6 +12,26 @@ function dataUrlToBuffer(dataUrl: string): Buffer {
   return Buffer.from(base64, "base64");
 }
 
+/** Renders a clause (plain text, or HTML with inline <strong>/<u> runs) on one flowing (wrapping) line. */
+function renderFormattedLine(
+  doc: PDFKit.PDFDocument,
+  prefix: string,
+  body: string,
+  x: number,
+  y: number,
+  width: number
+) {
+  const runs = htmlToRuns(legacyMarkersToHtml(body));
+  doc.x = x;
+  doc.y = y;
+  doc.font("Helvetica").fontSize(10).fillColor(DARK);
+  doc.text(prefix, { continued: true, width });
+  runs.forEach((run, i) => {
+    doc.font(run.bold ? "Helvetica-Bold" : "Helvetica");
+    doc.text(run.text, { continued: i < runs.length - 1, underline: run.underline || undefined });
+  });
+}
+
 export function generateAgreementPdf({
   template,
   customerName,
@@ -17,6 +39,7 @@ export function generateAgreementPdf({
   customerPhone,
   trackingNumber,
   signature,
+  timeZone,
 }: {
   template: IAgreementTemplateSnapshot;
   customerName: string;
@@ -24,6 +47,8 @@ export function generateAgreementPdf({
   customerPhone?: string;
   trackingNumber: string;
   signature?: IAgreementSignature;
+  /** Timezone of whoever is requesting the PDF (detected client-side) — falls back to the server's local time if omitted. */
+  timeZone?: string;
 }): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: "A4", margin: 50 });
@@ -47,7 +72,7 @@ export function generateAgreementPdf({
 
     let y = doc.y + 20;
     doc.fillColor(DARK).font("Helvetica").fontSize(10);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, left, y);
+    doc.text(`Date: ${formatDate(new Date(), timeZone)}`, left, y);
     y = doc.y + 12;
 
     doc.text("This Agreement is executed between:", left, y);
@@ -82,7 +107,7 @@ export function generateAgreementPdf({
     y = doc.y + 10;
 
     template.clauses.forEach((clause, i) => {
-      doc.font("Helvetica").fontSize(10).text(`${i + 1}. ${clause}`, left, y, { width: fullWidth });
+      renderFormattedLine(doc, `${i + 1}. `, clause, left, y, fullWidth);
       y = doc.y + 8;
     });
 
@@ -117,7 +142,7 @@ export function generateAgreementPdf({
       }
       doc.text(`Name: ${signature.signedName}`, left, leftY, { width: colWidth });
       leftY = doc.y + 2;
-      doc.text(`Signed: ${new Date(signature.signedAt).toLocaleString()}`, left, leftY, { width: colWidth });
+      doc.text(`Signed: ${formatDateTime(signature.signedAt, timeZone)}`, left, leftY, { width: colWidth });
       if (signature.ip) {
         leftY = doc.y + 2;
         doc.text(`IP: ${signature.ip}`, left, leftY, { width: colWidth });
@@ -141,7 +166,7 @@ export function generateAgreementPdf({
       width: colWidth,
     });
     rightY = doc.y + 2;
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, rightColX, rightY, { width: colWidth });
+    doc.text(`Date: ${formatDate(new Date(), timeZone)}`, rightColX, rightY, { width: colWidth });
 
     doc.end();
   });

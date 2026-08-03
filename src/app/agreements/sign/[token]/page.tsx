@@ -5,6 +5,8 @@ import { Loader2, CheckCircle2, FileText, AlertCircle } from "lucide-react";
 import Container from "@/components/ui/Container";
 import Button from "@/components/ui/Button";
 import SignaturePad, { type SignaturePadHandle } from "@/components/agreements/SignaturePad";
+import { formatDateTime } from "@/lib/utils";
+import ClauseHtml from "@/components/agreements/ClauseHtml";
 
 type AgreementData = {
   status: "pending" | "signed" | "expired";
@@ -31,6 +33,11 @@ export default function AgreementSignPage({ params }: { params: Promise<{ token:
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const padRef = useRef<SignaturePadHandle>(null);
+  const [timeZone, setTimeZone] = useState("");
+
+  useEffect(() => {
+    setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  }, []);
 
   useEffect(() => {
     fetch(`/api/agreements/${token}`)
@@ -132,7 +139,7 @@ export default function AgreementSignPage({ params }: { params: Promise<{ token:
         </p>
         <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-foreground/70">
           {agreement.template.clauses.map((clause, i) => (
-            <li key={i}>{clause}</li>
+            <li key={i}><ClauseHtml text={clause} /></li>
           ))}
         </ol>
 
@@ -141,10 +148,10 @@ export default function AgreementSignPage({ params }: { params: Promise<{ token:
             <CheckCircle2 className="mx-auto size-8 text-green-600 dark:text-green-400" />
             <p className="mt-2 font-medium text-foreground">
               Signed by {agreement.signature?.signedName ?? signedName}
-              {agreement.signature?.signedAt ? ` on ${new Date(agreement.signature.signedAt).toLocaleDateString()}` : ""}
+              {agreement.signature?.signedAt ? ` on ${formatDateTime(agreement.signature.signedAt)}` : ""}
             </p>
             <a
-              href={`/api/agreements/${token}/pdf`}
+              href={`/api/agreements/${token}/pdf${timeZone ? `?tz=${encodeURIComponent(timeZone)}` : ""}`}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-navy hover:underline dark:text-white"

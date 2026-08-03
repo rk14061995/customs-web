@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { Loader2, X, FileDown, Link as LinkIcon } from "lucide-react";
 import Button from "@/components/ui/Button";
-import { formatDate } from "@/lib/utils";
+import { formatDateTime } from "@/lib/utils";
+import ClauseHtml from "@/components/agreements/ClauseHtml";
 
 type AgreementDetail = {
   status: "pending" | "signed" | "expired";
@@ -32,6 +33,11 @@ export default function AgreementPreviewModal({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [copying, setCopying] = useState(false);
+  const [timeZone, setTimeZone] = useState("");
+
+  useEffect(() => {
+    setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -108,7 +114,7 @@ export default function AgreementPreviewModal({
               <p className="mt-5 text-sm font-semibold text-foreground">Subject: {agreement.template.subject}</p>
               <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-foreground/70">
                 {agreement.template.clauses.map((clause, i) => (
-                  <li key={i}>{clause}</li>
+                  <li key={i}><ClauseHtml text={clause} /></li>
                 ))}
               </ol>
 
@@ -116,7 +122,7 @@ export default function AgreementPreviewModal({
                 {agreement.status === "signed" && agreement.signature ? (
                   <div>
                     <p className="font-medium text-green-600 dark:text-green-400">
-                      Signed by {agreement.signature.signedName} on {formatDate(agreement.signature.signedAt)}
+                      Signed by {agreement.signature.signedName} on {formatDateTime(agreement.signature.signedAt)}
                     </p>
                     {agreement.signature.ip && (
                       <p className="mt-1 text-xs text-foreground/50">IP address: {agreement.signature.ip}</p>
@@ -136,7 +142,7 @@ export default function AgreementPreviewModal({
               {copying ? "Copying..." : "Copy Signing Link"}
             </Button>
             <a
-              href={`/api/admin/agreements/${shipmentId}/pdf`}
+              href={`/api/admin/agreements/${shipmentId}/pdf${timeZone ? `?tz=${encodeURIComponent(timeZone)}` : ""}`}
               target="_blank"
               rel="noopener noreferrer"
               className="group inline-flex items-center justify-center gap-2 rounded-full bg-orange px-6 py-3 text-base font-semibold text-white shadow-lg shadow-orange/25 transition-all duration-300 hover:-translate-y-0.5 hover:bg-orange-dark hover:shadow-orange/40"

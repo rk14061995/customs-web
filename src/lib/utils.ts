@@ -14,10 +14,31 @@ export function slugify(text: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-export function formatDate(date: string | Date) {
+export function formatDate(date: string | Date, timeZone?: string) {
   return new Date(date).toLocaleDateString("en-US", {
     year: "numeric",
     month: "long",
     day: "numeric",
+    ...(timeZone ? { timeZone } : {}),
   });
+}
+
+/**
+ * Date + time. In the browser this naturally renders in the viewer's own
+ * local timezone (no timeZone passed = runtime default). Pass an explicit
+ * timeZone when formatting server-side (e.g. generating a PDF) where there
+ * is no "local" timezone to fall back to.
+ */
+export function formatDateTime(date: string | Date, timeZone?: string) {
+  const formatted = new Date(date).toLocaleString("en-US", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+    hour12: true,
+    ...(timeZone ? { timeZone } : {}),
+  });
+  return timeZone ? `${formatted} (${timeZone})` : formatted;
 }
