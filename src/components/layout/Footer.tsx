@@ -150,6 +150,14 @@ export default function Footer({ settings }: { settings: SettingsProp }) {
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-foreground/50">
             <Link href="/privacy-policy" className="hover:text-orange">Privacy Policy</Link>
             <Link href="/terms-conditions" className="hover:text-orange">Terms & Conditions</Link>
+            <a
+              href="https://www.autovision-pro.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-orange"
+            >
+              Our Partners
+            </a>
           </div>
         </div>
       </Container>
