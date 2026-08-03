@@ -118,6 +118,10 @@ export function generateAgreementPdf({
       doc.text(`Name: ${signature.signedName}`, left, leftY, { width: colWidth });
       leftY = doc.y + 2;
       doc.text(`Signed: ${new Date(signature.signedAt).toLocaleString()}`, left, leftY, { width: colWidth });
+      if (signature.ip) {
+        leftY = doc.y + 2;
+        doc.text(`IP: ${signature.ip}`, left, leftY, { width: colWidth });
+      }
     } else {
       doc.strokeColor(BORDER).moveTo(left, leftY + 20).lineTo(left + colWidth, leftY + 20).stroke();
       leftY += 28;

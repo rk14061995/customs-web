@@ -31,3 +31,21 @@ export async function GET(
 
   return NextResponse.json(doc);
 }
+
+/**
+ * Deletes the agreement for a shipment, signed or not — used to undo a
+ * mistakenly created or wrongly signed agreement so a fresh one can be
+ * generated (the next GET/preview auto-creates a new one with a new token).
+ */
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ shipmentId: string }> }
+) {
+  const session = await getAdminSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  await dbConnect();
+  const { shipmentId } = await params;
+  await Agreement.findOneAndDelete({ shipment: shipmentId });
+  return NextResponse.json({ success: true });
+}

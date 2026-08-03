@@ -18,7 +18,7 @@ type AgreementDetail = {
     authorizedSignatoryName: string;
     authorizedSignatoryDesignation: string;
   };
-  signature?: { signedName: string; signedAt: string };
+  signature?: { signedName: string; signedAt: string; ip?: string };
 };
 
 export default function AgreementPreviewModal({
@@ -114,9 +114,14 @@ export default function AgreementPreviewModal({
 
               <div className="mt-6 border-t border-border-subtle pt-4 text-sm text-foreground/70">
                 {agreement.status === "signed" && agreement.signature ? (
-                  <p className="font-medium text-green-600 dark:text-green-400">
-                    Signed by {agreement.signature.signedName} on {formatDate(agreement.signature.signedAt)}
-                  </p>
+                  <div>
+                    <p className="font-medium text-green-600 dark:text-green-400">
+                      Signed by {agreement.signature.signedName} on {formatDate(agreement.signature.signedAt)}
+                    </p>
+                    {agreement.signature.ip && (
+                      <p className="mt-1 text-xs text-foreground/50">IP address: {agreement.signature.ip}</p>
+                    )}
+                  </div>
                 ) : (
                   <p>Not yet signed by the customer.</p>
                 )}

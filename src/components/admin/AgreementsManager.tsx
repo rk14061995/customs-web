@@ -54,6 +54,7 @@ export default function AgreementsManager() {
   const [agreements, setAgreements] = useState<AgreementRow[]>([]);
   const [listLoading, setListLoading] = useState(true);
   const [previewShipmentId, setPreviewShipmentId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const loadTemplate = async () => {
     setTemplateLoading(true);
@@ -95,6 +96,22 @@ export default function AgreementsManager() {
 
   const removeClause = (index: number) =>
     setTemplate((t) => ({ ...t, clauses: t.clauses.filter((_, i) => i !== index) }));
+
+  const handleDelete = async (row: AgreementRow) => {
+    if (!row.shipment) return;
+    const warning =
+      row.status === "signed"
+        ? `This agreement was already signed by ${row.signature?.signedName ?? "the customer"}. Delete it anyway so a new one can be generated?`
+        : `Delete this agreement for ${row.shipment.trackingNumber}?`;
+    if (!confirm(warning)) return;
+    setDeletingId(row._id);
+    try {
+      await fetch(`/api/admin/agreements/${row.shipment._id}`, { method: "DELETE" });
+      await loadAgreements();
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <div>
@@ -268,6 +285,19 @@ export default function AgreementsManager() {
                               <Eye className="size-4" />
                             </button>
                           )}
+                          <button
+                            onClick={() => handleDelete(row)}
+                            disabled={deletingId === row._id}
+                            aria-label="Delete Agreement"
+                            title="Delete Agreement"
+                            className="flex size-8 items-center justify-center rounded-lg text-foreground/50 hover:bg-red-500/10 hover:text-red-500 disabled:opacity-60"
+                          >
+                            {deletingId === row._id ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="size-4" />
+                            )}
+                          </button>
                         </div>
                       </td>
                     </tr>
