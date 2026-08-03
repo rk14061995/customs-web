@@ -5,6 +5,7 @@ import Shipment from "@/models/Shipment";
 import "@/models/Customer";
 import "@/models/Carrier";
 import { generateTrackingNumber } from "@/lib/shipmentUtils";
+import { ensureAgreement } from "@/lib/agreements";
 
 export async function GET(req: NextRequest) {
   const session = await getAdminSession();
@@ -56,6 +57,15 @@ export async function POST(req: NextRequest) {
       { path: "customer", select: "name company email phone" },
       { path: "carrier", select: "name provider" },
     ]);
+
+    try {
+      await ensureAgreement(String(doc._id));
+    } catch (err) {
+      // Best-effort — the shipment is already booked; admin can retry from
+      // the Agreements page if this fails.
+      console.error("Failed to create booking agreement:", err);
+    }
+
     return NextResponse.json(populated, { status: 201 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to create shipment";

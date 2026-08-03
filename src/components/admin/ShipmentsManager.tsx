@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Pencil, Trash2, X, Loader2, History, Search, RefreshCw } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Loader2, History, Search, RefreshCw, FileSignature } from "lucide-react";
 import Button from "@/components/ui/Button";
+import AgreementPreviewModal from "@/components/admin/AgreementPreviewModal";
 
 const TRACKABLE_PROVIDERS = ["Ship24", "UPS", "FedEx", "DHL"];
 
@@ -115,6 +116,7 @@ export default function ShipmentsManager() {
   const [savingEvent, setSavingEvent] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState("");
+  const [previewShipmentId, setPreviewShipmentId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -213,6 +215,7 @@ export default function ShipmentsManager() {
     await fetch(`/api/admin/shipments/${row._id}`, { method: "DELETE" });
     await load();
   };
+
 
   const openTimeline = (row: Shipment) => {
     setTimelineFor(row);
@@ -362,6 +365,14 @@ export default function ShipmentsManager() {
                     </td>
                     <td className="px-5 py-3">
                       <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => setPreviewShipmentId(row._id)}
+                          aria-label="Preview Agreement"
+                          title="Preview Agreement"
+                          className="flex size-8 items-center justify-center rounded-lg text-foreground/50 hover:bg-navy/10 hover:text-navy"
+                        >
+                          <FileSignature className="size-4" />
+                        </button>
                         <button
                           onClick={() => openTimeline(row)}
                           aria-label="Timeline"
@@ -680,6 +691,10 @@ export default function ShipmentsManager() {
             </div>
           </div>
         </div>
+      )}
+
+      {previewShipmentId && (
+        <AgreementPreviewModal shipmentId={previewShipmentId} onClose={() => setPreviewShipmentId(null)} />
       )}
     </div>
   );

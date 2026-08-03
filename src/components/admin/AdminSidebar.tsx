@@ -20,6 +20,7 @@ import {
   Contact2,
   Ship,
   Receipt,
+  FileSignature,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,6 +29,7 @@ const navItems = [
   { label: "Shipments", href: "/admin/shipments", icon: Truck },
   { label: "Quotations", href: "/admin/quotations", icon: Receipt },
   { label: "Payments", href: "/admin/payments", icon: CreditCard },
+  { label: "Agreements", href: "/admin/agreements", icon: FileSignature },
   { label: "Customers", href: "/admin/customers", icon: Contact2 },
   { label: "Carriers", href: "/admin/carriers", icon: Ship },
   { label: "Services", href: "/admin/services", icon: Package },
