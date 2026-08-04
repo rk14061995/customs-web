@@ -7,6 +7,8 @@ import type { ICustomer } from "@/models/Customer";
 import type { IShipment } from "@/models/Shipment";
 import { getAdminSession } from "@/lib/auth";
 import { generateBillPdf } from "@/lib/billPdf";
+import { getSettings } from "@/lib/queries";
+import { siteConfig } from "@/lib/data";
 
 export async function GET(
   _req: Request,
@@ -23,6 +25,12 @@ export async function GET(
     shipment: IShipment | null;
   }>(["customer", "shipment"]);
   if (!bill) return NextResponse.json({ error: "Bill not found" }, { status: 404 });
+
+  const settings = await getSettings();
+  const resolved = settings ?? siteConfig;
+  const companyPhone = resolved.alternatePhone
+    ? `${resolved.phone} / ${resolved.alternatePhone}`
+    : resolved.phone;
 
   const pdf = await generateBillPdf({
     billNumber: bill.billNumber,
@@ -41,6 +49,8 @@ export async function GET(
     total: bill.total,
     status: bill.status,
     notes: bill.notes,
+    companyEmail: resolved.email,
+    companyPhone,
   });
 
   return new NextResponse(new Uint8Array(pdf), {

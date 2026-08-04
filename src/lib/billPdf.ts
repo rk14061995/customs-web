@@ -103,7 +103,7 @@ export function generateBillPdf({
 
     doc.fillColor(GRAY).font("Helvetica-Bold").fontSize(9);
     doc.text("DESCRIPTION", descColX, y);
-    doc.text("QTY", qtyColX, y);
+    doc.text("KG", qtyColX, y);
     doc.text("RATE", rateColX, y);
     doc.text("AMOUNT", amountColX, y, { width: amountColWidth, align: "right" });
     y = doc.y + 6;

@@ -45,7 +45,7 @@ export default async function SiteLayout({
     sameAs: Object.values(resolvedSettings.social).filter(Boolean),
   };
 
-  const gtagId = resolvedSettings.ga4MeasurementId ?? resolvedSettings.googleAdsId;
+  const gtagId = resolvedSettings.ga4MeasurementId ?? resolvedSettings.googleAdsId ?? "G-9S78G2B4H6";
 
   return (
     <>

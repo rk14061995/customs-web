@@ -6,8 +6,6 @@ import ThemeProvider from "@/components/shared/ThemeProvider";
 import { siteConfig } from "@/lib/data";
 import { getSettings } from "@/lib/queries";
 
-const GA_MEASUREMENT_ID = "G-9S78G2B4H6";
-
 const poppins = Poppins({
   variable: "--font-poppins",
   subsets: ["latin"],
@@ -64,18 +62,6 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${poppins.variable} ${inter.variable} antialiased`}>
-        <Script
-          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
-          strategy="afterInteractive"
-        />
-        <Script id="ga-gtag" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', '${GA_MEASUREMENT_ID}');
-          `}
-        </Script>
         <Script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6571647795718472"
