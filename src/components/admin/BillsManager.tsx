@@ -14,9 +14,15 @@ const statusColor: Record<string, string> = {
   cancelled: "bg-foreground/10 text-foreground/60",
 };
 
+const TAX_TYPES = [
+  { value: "igst", label: "IGST (interstate)" },
+  { value: "cgst_sgst", label: "CGST + SGST (intrastate)" },
+  { value: "none", label: "No tax" },
+];
+
 type Customer = { _id: string; name: string; company?: string };
 type Shipment = { _id: string; trackingNumber: string; origin: string; destination: string };
-type BillItem = { description: string; quantity: number; rate: number; amount: number };
+type BillItem = { description: string; hsnSac?: string; unit?: string; quantity: number; rate: number; amount: number };
 type Bill = {
   _id: string;
   billNumber: string;
@@ -26,6 +32,7 @@ type Bill = {
   dueDate?: string;
   items: BillItem[];
   currency: string;
+  taxType: string;
   taxRate: number;
   subtotal: number;
   taxAmount: number;
@@ -34,7 +41,7 @@ type Bill = {
   notes?: string;
 };
 
-const emptyItem: BillItem = { description: "", quantity: 1, rate: 0, amount: 0 };
+const emptyItem: BillItem = { description: "", hsnSac: "", unit: "Nos", quantity: 1, rate: 0, amount: 0 };
 
 const emptyForm = {
   customer: "",
@@ -43,6 +50,7 @@ const emptyForm = {
   dueDate: "",
   items: [emptyItem],
   currency: "INR",
+  taxType: "igst",
   taxRate: 0,
   status: "unpaid",
   notes: "",
@@ -105,6 +113,7 @@ export default function BillsManager() {
       dueDate: row.dueDate ?? "",
       items: row.items.length ? row.items : [emptyItem],
       currency: row.currency,
+      taxType: row.taxType ?? "igst",
       taxRate: row.taxRate,
       status: row.status,
       notes: row.notes ?? "",
@@ -115,12 +124,14 @@ export default function BillsManager() {
 
   const closeModal = () => setModalOpen(false);
 
+  const numericItemFields: (keyof BillItem)[] = ["quantity", "rate"];
+
   const updateItem = (index: number, field: keyof BillItem, value: string) => {
     setFormValues((v) => ({
       ...v,
       items: v.items.map((item, i) => {
         if (i !== index) return item;
-        const updated = { ...item, [field]: field === "description" ? value : Number(value) };
+        const updated = { ...item, [field]: numericItemFields.includes(field) ? Number(value) : value };
         updated.amount = updated.quantity * updated.rate;
         return updated;
       }),
@@ -329,39 +340,55 @@ export default function BillsManager() {
                 <label className="mb-1.5 block text-sm font-medium text-foreground">Items</label>
                 <div className="space-y-2">
                   {formValues.items.map((item, i) => (
-                    <div key={i} className="flex items-start gap-2">
-                      <input
-                        value={item.description}
-                        onChange={(e) => updateItem(i, "description", e.target.value)}
-                        placeholder="Description"
-                        className="flex-1 rounded-xl border border-border-subtle bg-background px-3 py-2 text-sm outline-none focus:border-navy"
-                      />
-                      <input
-                        type="number"
-                        min={0}
-                        value={item.quantity}
-                        onChange={(e) => updateItem(i, "quantity", e.target.value)}
-                        placeholder="Qty"
-                        className="w-20 rounded-xl border border-border-subtle bg-background px-3 py-2 text-sm outline-none focus:border-navy"
-                      />
-                      <input
-                        type="number"
-                        min={0}
-                        value={item.rate}
-                        onChange={(e) => updateItem(i, "rate", e.target.value)}
-                        placeholder="Rate"
-                        className="w-28 rounded-xl border border-border-subtle bg-background px-3 py-2 text-sm outline-none focus:border-navy"
-                      />
-                      <div className="flex h-[42px] w-28 shrink-0 items-center justify-end px-2 text-sm text-foreground/70">
-                        {(item.quantity * item.rate).toLocaleString()}
+                    <div key={i} className="space-y-1.5 rounded-xl border border-border-subtle p-2">
+                      <div className="flex items-start gap-2">
+                        <input
+                          value={item.description}
+                          onChange={(e) => updateItem(i, "description", e.target.value)}
+                          placeholder="Description"
+                          className="flex-1 rounded-xl border border-border-subtle bg-background px-3 py-2 text-sm outline-none focus:border-navy"
+                        />
+                        <input
+                          value={item.hsnSac ?? ""}
+                          onChange={(e) => updateItem(i, "hsnSac", e.target.value)}
+                          placeholder="HSN/SAC"
+                          className="w-24 rounded-xl border border-border-subtle bg-background px-3 py-2 text-sm outline-none focus:border-navy"
+                        />
+                        <button
+                          onClick={() => removeItem(i)}
+                          aria-label="Remove item"
+                          className="flex size-[42px] shrink-0 items-center justify-center rounded-lg text-foreground/50 hover:bg-red-500/10 hover:text-red-500"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
                       </div>
-                      <button
-                        onClick={() => removeItem(i)}
-                        aria-label="Remove item"
-                        className="flex size-[42px] shrink-0 items-center justify-center rounded-lg text-foreground/50 hover:bg-red-500/10 hover:text-red-500"
-                      >
-                        <Trash2 className="size-4" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min={0}
+                          value={item.quantity}
+                          onChange={(e) => updateItem(i, "quantity", e.target.value)}
+                          placeholder="Qty"
+                          className="w-20 rounded-xl border border-border-subtle bg-background px-3 py-2 text-sm outline-none focus:border-navy"
+                        />
+                        <input
+                          value={item.unit ?? ""}
+                          onChange={(e) => updateItem(i, "unit", e.target.value)}
+                          placeholder="Unit (Kgs, Nos...)"
+                          className="w-28 rounded-xl border border-border-subtle bg-background px-3 py-2 text-sm outline-none focus:border-navy"
+                        />
+                        <input
+                          type="number"
+                          min={0}
+                          value={item.rate}
+                          onChange={(e) => updateItem(i, "rate", e.target.value)}
+                          placeholder="Rate"
+                          className="w-28 rounded-xl border border-border-subtle bg-background px-3 py-2 text-sm outline-none focus:border-navy"
+                        />
+                        <div className="flex h-[42px] flex-1 shrink-0 items-center justify-end px-2 text-sm text-foreground/70">
+                          {(item.quantity * item.rate).toLocaleString()}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -373,7 +400,7 @@ export default function BillsManager() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-foreground">Currency</label>
                   <input
@@ -381,6 +408,18 @@ export default function BillsManager() {
                     onChange={(e) => setFormValues((v) => ({ ...v, currency: e.target.value }))}
                     className="w-full rounded-xl border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none focus:border-navy"
                   />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-foreground">Tax Type</label>
+                  <select
+                    value={formValues.taxType}
+                    onChange={(e) => setFormValues((v) => ({ ...v, taxType: e.target.value }))}
+                    className="w-full rounded-xl border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none focus:border-navy"
+                  >
+                    {TAX_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="mb-1.5 block text-sm font-medium text-foreground">Tax Rate (%)</label>

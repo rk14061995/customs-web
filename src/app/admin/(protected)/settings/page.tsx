@@ -16,6 +16,17 @@ type SettingsData = {
   description?: string;
   ga4MeasurementId?: string;
   googleAdsId?: string;
+  gstin?: string;
+  pan?: string;
+  udyamNumber?: string;
+  stateName?: string;
+  stateCode?: string;
+  jurisdiction?: string;
+  bankAccountHolder?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankBranch?: string;
+  bankIfsc?: string;
   social: { facebook?: string; twitter?: string; linkedin?: string; instagram?: string };
 };
 
@@ -34,6 +45,17 @@ const emptySettings: SettingsData = {
   description: "",
   ga4MeasurementId: "",
   googleAdsId: "",
+  gstin: "",
+  pan: "",
+  udyamNumber: "",
+  stateName: "",
+  stateCode: "",
+  jurisdiction: "",
+  bankAccountHolder: "",
+  bankName: "",
+  bankAccountNumber: "",
+  bankBranch: "",
+  bankIfsc: "",
   social: {},
 };
 
@@ -113,6 +135,62 @@ export default function AdminSettingsPage() {
             onChange={(e) => setData({ ...data, description: e.target.value })}
             className={inputClass}
           />
+        </div>
+
+        <div>
+          <p className="mb-1.5 text-sm font-medium text-foreground">Tax & Registration (used on Bill PDFs)</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-xs text-foreground/60">GSTIN/UIN</label>
+              <input value={data.gstin ?? ""} onChange={(e) => setData({ ...data, gstin: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs text-foreground/60">PAN</label>
+              <input value={data.pan ?? ""} onChange={(e) => setData({ ...data, pan: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs text-foreground/60">UDYAM Registration No.</label>
+              <input value={data.udyamNumber ?? ""} onChange={(e) => setData({ ...data, udyamNumber: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs text-foreground/60">Jurisdiction (for invoice footer)</label>
+              <input value={data.jurisdiction ?? ""} onChange={(e) => setData({ ...data, jurisdiction: e.target.value })} placeholder="e.g. Delhi" className={inputClass} />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs text-foreground/60">State Name</label>
+              <input value={data.stateName ?? ""} onChange={(e) => setData({ ...data, stateName: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs text-foreground/60">State Code</label>
+              <input value={data.stateCode ?? ""} onChange={(e) => setData({ ...data, stateCode: e.target.value })} placeholder="e.g. 07" className={inputClass} />
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-1.5 text-sm font-medium text-foreground">Bank Details (used on Bill PDFs)</p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-xs text-foreground/60">Account Holder Name</label>
+              <input value={data.bankAccountHolder ?? ""} onChange={(e) => setData({ ...data, bankAccountHolder: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs text-foreground/60">Bank Name</label>
+              <input value={data.bankName ?? ""} onChange={(e) => setData({ ...data, bankName: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs text-foreground/60">Account Number</label>
+              <input value={data.bankAccountNumber ?? ""} onChange={(e) => setData({ ...data, bankAccountNumber: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs text-foreground/60">Branch</label>
+              <input value={data.bankBranch ?? ""} onChange={(e) => setData({ ...data, bankBranch: e.target.value })} className={inputClass} />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs text-foreground/60">IFSC Code</label>
+              <input value={data.bankIfsc ?? ""} onChange={(e) => setData({ ...data, bankIfsc: e.target.value })} className={inputClass} />
+            </div>
+          </div>
         </div>
 
         <div>

@@ -169,6 +169,17 @@ export const getSettings = cache(async () => {
     description?: string;
     ga4MeasurementId?: string;
     googleAdsId?: string;
+    gstin?: string;
+    pan?: string;
+    udyamNumber?: string;
+    stateName?: string;
+    stateCode?: string;
+    jurisdiction?: string;
+    bankAccountHolder?: string;
+    bankName?: string;
+    bankAccountNumber?: string;
+    bankBranch?: string;
+    bankIfsc?: string;
     social: { facebook?: string; twitter?: string; linkedin?: string; instagram?: string };
   } | null>(doc);
 });

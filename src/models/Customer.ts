@@ -7,6 +7,8 @@ export interface ICustomer extends Document {
   phone: string;
   address?: string;
   gstNumber?: string;
+  stateName?: string;
+  stateCode?: string;
   notes?: string;
   createdAt: Date;
 }
@@ -19,6 +21,8 @@ const CustomerSchema = new Schema<ICustomer>(
     phone: { type: String, required: true },
     address: { type: String },
     gstNumber: { type: String },
+    stateName: { type: String },
+    stateCode: { type: String },
     notes: { type: String },
   },
   { timestamps: true }

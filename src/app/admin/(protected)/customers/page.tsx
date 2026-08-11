@@ -21,6 +21,8 @@ export default function AdminCustomersPage() {
         { name: "phone", label: "Phone", type: "text", required: true },
         { name: "address", label: "Address", type: "textarea" },
         { name: "gstNumber", label: "GST / Tax Number", type: "text" },
+        { name: "stateName", label: "State", type: "text", placeholder: "e.g. Delhi" },
+        { name: "stateCode", label: "State Code", type: "text", placeholder: "e.g. 07" },
         { name: "notes", label: "Notes", type: "textarea" },
       ]}
     />

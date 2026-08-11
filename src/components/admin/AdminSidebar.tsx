@@ -22,6 +22,7 @@ import {
   Receipt,
   FileSignature,
   FileText,
+  BadgeCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +33,7 @@ const navItems = [
   { label: "Payments", href: "/admin/payments", icon: CreditCard },
   { label: "Bills", href: "/admin/bills", icon: FileText },
   { label: "Agreements", href: "/admin/agreements", icon: FileSignature },
+  { label: "Credit Approvals", href: "/admin/credit-approvals", icon: BadgeCheck },
   { label: "Customers", href: "/admin/customers", icon: Contact2 },
   { label: "Carriers", href: "/admin/carriers", icon: Ship },
   { label: "Services", href: "/admin/services", icon: Package },

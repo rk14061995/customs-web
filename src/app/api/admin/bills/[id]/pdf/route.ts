@@ -31,6 +31,7 @@ export async function GET(
   const companyPhone = resolved.alternatePhone
     ? `${resolved.phone} / ${resolved.alternatePhone}`
     : resolved.phone;
+  const companyName = "siteName" in resolved ? resolved.siteName : resolved.name;
 
   const pdf = await generateBillPdf({
     billNumber: bill.billNumber,
@@ -40,17 +41,35 @@ export async function GET(
     customerCompany: bill.customer?.company,
     customerEmail: bill.customer?.email,
     customerPhone: bill.customer?.phone,
+    customerAddress: bill.customer?.address,
+    customerGstin: bill.customer?.gstNumber,
+    customerState: bill.customer?.stateName,
     shipmentTrackingNumber: bill.shipment?.trackingNumber,
     currency: bill.currency,
     items: bill.items,
     subtotal: bill.subtotal,
+    taxType: bill.taxType,
     taxRate: bill.taxRate,
     taxAmount: bill.taxAmount,
     total: bill.total,
     status: bill.status,
     notes: bill.notes,
+    companyName,
+    companyAddress: resolved.address,
     companyEmail: resolved.email,
     companyPhone,
+    companyGstin: resolved.gstin,
+    companyPan: resolved.pan,
+    companyUdyam: resolved.udyamNumber,
+    companyState: resolved.stateName && resolved.stateCode ? `${resolved.stateName}, Code: ${resolved.stateCode}` : resolved.stateName,
+    jurisdiction: resolved.jurisdiction,
+    bank: {
+      accountHolder: resolved.bankAccountHolder,
+      bankName: resolved.bankName,
+      accountNumber: resolved.bankAccountNumber,
+      branch: resolved.bankBranch,
+      ifsc: resolved.bankIfsc,
+    },
   });
 
   return new NextResponse(new Uint8Array(pdf), {

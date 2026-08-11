@@ -13,6 +13,17 @@ export interface ISettings extends Document {
   ga4MeasurementId?: string;
   googleAdsId?: string;
   usdToInrRate: number;
+  gstin?: string;
+  pan?: string;
+  udyamNumber?: string;
+  stateName?: string;
+  stateCode?: string;
+  jurisdiction?: string;
+  bankAccountHolder?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankBranch?: string;
+  bankIfsc?: string;
   social: {
     facebook?: string;
     twitter?: string;
@@ -36,6 +47,17 @@ const SettingsSchema = new Schema<ISettings>(
     ga4MeasurementId: { type: String },
     googleAdsId: { type: String },
     usdToInrRate: { type: Number, default: 96 },
+    gstin: { type: String },
+    pan: { type: String },
+    udyamNumber: { type: String },
+    stateName: { type: String },
+    stateCode: { type: String },
+    jurisdiction: { type: String },
+    bankAccountHolder: { type: String },
+    bankName: { type: String },
+    bankAccountNumber: { type: String },
+    bankBranch: { type: String },
+    bankIfsc: { type: String },
     social: {
       facebook: String,
       twitter: String,
