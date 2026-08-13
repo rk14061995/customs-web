@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Trash2, X, Loader2, Download, Pencil, CheckCircle2, Clock, ListChecks } from "lucide-react";
+import { Plus, Trash2, X, Loader2, Download, Pencil, CheckCircle2, Clock, ListChecks, Eye, RotateCcw } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
@@ -136,6 +136,14 @@ type RequestRow = {
   excludedTemplates: string[];
 };
 
+type ViewData = {
+  fileName: string;
+  mimeType: string;
+  fileSize: number;
+  answers: Record<string, string> | null;
+  uploadedAt: string;
+};
+
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -164,6 +172,12 @@ export default function DocumentsManager() {
   const [includedTemplateIds, setIncludedTemplateIds] = useState<string[]>([]);
   const [savingRequest, setSavingRequest] = useState(false);
   const [requestError, setRequestError] = useState("");
+
+  const [viewing, setViewing] = useState<{ shipmentId: string; templateId: string; title: string } | null>(null);
+  const [viewData, setViewData] = useState<ViewData | null>(null);
+  const [viewLoading, setViewLoading] = useState(false);
+  const [viewError, setViewError] = useState("");
+  const [resettingId, setResettingId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -290,6 +304,51 @@ export default function DocumentsManager() {
       await load();
     } finally {
       setSavingRequest(false);
+    }
+  };
+
+  // --- Viewing a submitted/uploaded document ---
+
+  const openView = async (shipmentId: string, templateId: string, title: string) => {
+    setViewing({ shipmentId, templateId, title });
+    setViewData(null);
+    setViewError("");
+    setViewLoading(true);
+    try {
+      const res = await fetch(`/api/admin/document-requests/${shipmentId}/items/${templateId}`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setViewError(data.error ?? "Failed to load");
+        return;
+      }
+      setViewData(data);
+    } finally {
+      setViewLoading(false);
+    }
+  };
+
+  // --- Clearing test/mistaken submissions ---
+
+  const handleResetItem = async (shipmentId: string, templateId: string, title: string) => {
+    if (!confirm(`Clear the submitted "${title}"? It goes back to Pending and the file/answers are deleted.`)) return;
+    setResettingId(`${shipmentId}:${templateId}`);
+    try {
+      await fetch(`/api/admin/document-requests/${shipmentId}/items/${templateId}`, { method: "DELETE" });
+      if (viewing?.shipmentId === shipmentId && viewing.templateId === templateId) setViewing(null);
+      await load();
+    } finally {
+      setResettingId(null);
+    }
+  };
+
+  const handleResetAll = async (shipmentId: string, trackingNumber: string) => {
+    if (!confirm(`Clear ALL submitted documents for ${trackingNumber}? Every one goes back to Pending — useful after test-filling them.`)) return;
+    setResettingId(shipmentId);
+    try {
+      await fetch(`/api/admin/document-requests/${shipmentId}`, { method: "DELETE" });
+      await load();
+    } finally {
+      setResettingId(null);
     }
   };
 
@@ -432,42 +491,87 @@ export default function DocumentsManager() {
                             {attached.length === 0 ? (
                               <span className="text-xs text-foreground/50">None attached</span>
                             ) : (
-                              attached.map((item, i) => (
-                                <span
-                                  key={i}
-                                  title={
-                                    item.status === "uploaded" && item.upload
-                                      ? `Uploaded ${formatDateTime(item.upload.uploadedAt)}`
-                                      : "Pending"
-                                  }
-                                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
-                                    item.status === "uploaded"
-                                      ? "bg-green-500/10 text-green-600 dark:text-green-400"
-                                      : "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
-                                  }`}
-                                >
-                                  {item.status === "uploaded" ? (
-                                    <CheckCircle2 className="size-3" />
-                                  ) : (
-                                    <Clock className="size-3" />
-                                  )}
-                                  {item.template?.title ?? "Unknown"}
-                                  {item.status === "uploaded" && item.template && row.shipment && (
-                                    <a
-                                      href={`/api/admin/document-requests/${row.shipment._id}/items/${item.template._id}/file`}
-                                      aria-label={`Download uploaded ${item.template.title}`}
-                                      className="ml-0.5 hover:opacity-70"
-                                    >
-                                      <Download className="size-3" />
-                                    </a>
-                                  )}
-                                </span>
-                              ))
+                              attached.map((item, i) => {
+                                const uploaded = item.status === "uploaded" && item.template && row.shipment;
+                                return (
+                                  <span
+                                    key={i}
+                                    title={
+                                      item.status === "uploaded" && item.upload
+                                        ? `Uploaded ${formatDateTime(item.upload.uploadedAt)} — click to view`
+                                        : "Pending"
+                                    }
+                                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
+                                      item.status === "uploaded"
+                                        ? "bg-green-500/10 text-green-600 dark:text-green-400"
+                                        : "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
+                                    }`}
+                                  >
+                                    {item.status === "uploaded" ? (
+                                      <CheckCircle2 className="size-3" />
+                                    ) : (
+                                      <Clock className="size-3" />
+                                    )}
+                                    {item.template?.title ?? "Unknown"}
+                                    {uploaded && (
+                                      <>
+                                        <button
+                                          type="button"
+                                          onClick={() => openView(row.shipment!._id, item.template!._id, item.template!.title)}
+                                          aria-label={`View ${item.template!.title}`}
+                                          className="ml-0.5 hover:opacity-70"
+                                        >
+                                          <Eye className="size-3" />
+                                        </button>
+                                        <a
+                                          href={`/api/admin/document-requests/${row.shipment!._id}/items/${item.template!._id}/file`}
+                                          aria-label={`Download uploaded ${item.template!.title}`}
+                                          className="hover:opacity-70"
+                                        >
+                                          <Download className="size-3" />
+                                        </a>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleResetItem(row.shipment!._id, item.template!._id, item.template!.title)}
+                                          disabled={resettingId === `${row.shipment!._id}:${item.template!._id}`}
+                                          aria-label={`Clear ${item.template!.title}`}
+                                          title="Clear this submission (back to Pending)"
+                                          className="hover:opacity-70 disabled:opacity-40"
+                                        >
+                                          {resettingId === `${row.shipment!._id}:${item.template!._id}` ? (
+                                            <Loader2 className="size-3 animate-spin" />
+                                          ) : (
+                                            <RotateCcw className="size-3" />
+                                          )}
+                                        </button>
+                                      </>
+                                    )}
+                                  </span>
+                                );
+                              })
                             )}
                           </div>
                         </td>
                         <td className="px-5 py-3">
-                          <div className="flex justify-end">
+                          <div className="flex justify-end gap-2">
+                            {row.shipment && (() => {
+                              const hasUploaded = attached.some((i) => i.status === "uploaded");
+                              return (
+                                <button
+                                  onClick={() => hasUploaded && handleResetAll(row.shipment!._id, row.shipment!.trackingNumber)}
+                                  disabled={!hasUploaded || resettingId === row.shipment._id}
+                                  aria-label="Clear all submissions"
+                                  title={hasUploaded ? "Clear all submissions for this shipment (back to Pending) — handy after test-filling them" : "Nothing submitted yet for this shipment"}
+                                  className="flex size-8 items-center justify-center rounded-lg text-foreground/50 hover:bg-red-500/10 hover:text-red-500 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-foreground/50"
+                                >
+                                  {resettingId === row.shipment._id ? (
+                                    <Loader2 className="size-4 animate-spin" />
+                                  ) : (
+                                    <RotateCcw className="size-4" />
+                                  )}
+                                </button>
+                              );
+                            })()}
                             <button
                               onClick={() => openEditRequest(row)}
                               aria-label="Choose documents"
@@ -606,6 +710,27 @@ export default function DocumentsManager() {
             <p className="mb-3 text-sm text-foreground/60">
               All documents are attached by default — uncheck any that don&apos;t apply to this shipment.
             </p>
+
+            {editingRequest.items.some((i) => i.status === "uploaded") && (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!editingRequest.shipment) return;
+                  await handleResetAll(editingRequest.shipment._id, editingRequest.shipment.trackingNumber);
+                  setEditingRequest(null);
+                }}
+                disabled={resettingId === editingRequest.shipment?._id}
+                className="mb-3 inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-500/10 disabled:opacity-50"
+              >
+                {resettingId === editingRequest.shipment?._id ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <RotateCcw className="size-4" />
+                )}
+                Reset all submissions for this shipment
+              </button>
+            )}
+
             <div className="space-y-2 rounded-xl border border-border-subtle p-3">
               {templates.length === 0 ? (
                 <p className="text-sm text-foreground/50">No document templates yet.</p>
@@ -631,6 +756,72 @@ export default function DocumentsManager() {
                 {savingRequest ? <Loader2 className="size-4 animate-spin" /> : "Save"}
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- View a submitted/uploaded document --- */}
+      {viewing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-background p-6 shadow-2xl">
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="font-heading text-lg font-semibold text-foreground">{viewing.title}</h2>
+              <button onClick={() => setViewing(null)} aria-label="Close" className="text-foreground/50 hover:text-foreground">
+                <X className="size-5" />
+              </button>
+            </div>
+
+            {viewLoading ? (
+              <Loader2 className="mx-auto size-6 animate-spin text-foreground/40" />
+            ) : viewError ? (
+              <p className="text-sm text-red-500">{viewError}</p>
+            ) : viewData ? (
+              <div>
+                <p className="mb-4 text-xs text-foreground/50">
+                  {viewData.fileName} · {formatBytes(viewData.fileSize)} · uploaded {formatDateTime(viewData.uploadedAt)}
+                </p>
+
+                {viewData.answers ? (
+                  <div className="overflow-hidden rounded-xl border border-border-subtle">
+                    <table className="w-full text-left text-sm">
+                      <tbody className="divide-y divide-border-subtle">
+                        {Object.entries(viewData.answers).map(([key, value]) => {
+                          const label = templates.find((t) => t._id === viewing.templateId)?.fields.find((f) => f.key === key)?.label ?? key;
+                          return (
+                            <tr key={key}>
+                              <td className="w-1/3 px-4 py-2.5 align-top text-foreground/60">{label}</td>
+                              <td className="px-4 py-2.5 font-medium text-foreground">{value || "—"}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-foreground/60">
+                    This was uploaded as a file (not filled online) — no structured data to show, just
+                    the file itself.
+                  </p>
+                )}
+
+                <div className="mt-5 flex items-center gap-4">
+                  <a
+                    href={`/api/admin/document-requests/${viewing.shipmentId}/items/${viewing.templateId}/file`}
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-navy hover:underline dark:text-white"
+                  >
+                    <Download className="size-4" /> Download {viewData.answers ? "PDF" : "file"}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => handleResetItem(viewing.shipmentId, viewing.templateId, viewing.title)}
+                    disabled={resettingId === `${viewing.shipmentId}:${viewing.templateId}`}
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-red-500 hover:underline disabled:opacity-50"
+                  >
+                    <RotateCcw className="size-4" /> Clear this submission
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       )}

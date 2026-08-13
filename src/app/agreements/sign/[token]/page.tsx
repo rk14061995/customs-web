@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronRight,
   Ship,
+  PartyPopper,
 } from "lucide-react";
 import Button from "@/components/ui/Button";
 import SignaturePad, { type SignaturePadHandle } from "@/components/agreements/SignaturePad";
@@ -38,7 +39,14 @@ type AgreementData = {
   token: string;
   status: "pending" | "signed" | "expired";
   shipment: { trackingNumber: string; carrierTrackingNumber?: string; origin: string; destination: string } | null;
-  customer: { name: string } | null;
+  customer: {
+    name: string;
+    company?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    gstNumber?: string;
+  } | null;
   template: {
     title: string;
     forwarderName: string;
@@ -55,6 +63,63 @@ const fieldInputClass =
   "w-full rounded-xl border border-border-subtle bg-background px-3.5 py-2.5 text-sm text-foreground outline-none transition-colors placeholder:text-foreground/35 focus:border-navy focus:ring-4 focus:ring-navy/10";
 
 const AGREEMENT_SECTION = "agreement";
+const SUMMARY_SECTION = "summary";
+
+/**
+ * Best-effort pre-fill for field keys we recognize (Customer Name, GST No., Phone, etc.) —
+ * sourced from the customer already on file so they don't have to retype what we already know.
+ * Only ever used to seed the form once when the agreement first loads, never to overwrite what
+ * they've typed. Silently returns nothing for any key it doesn't recognize — e.g. a field on a
+ * custom template an admin adds later — the input just starts blank as before.
+ */
+function autofillValue(key: string, customer: AgreementData["customer"]): string | undefined {
+  if (!customer) return undefined;
+  // GSTIN layout: 2-digit state code + 10-char PAN + entity code + "Z" + checksum = 15 chars.
+  const pan = customer.gstNumber && customer.gstNumber.length === 15 ? customer.gstNumber.slice(2, 12) : undefined;
+  const today = new Date().toISOString().slice(0, 10);
+
+  const map: Record<string, string | undefined> = {
+    customer_name: customer.company || customer.name,
+    organization_name: customer.company || customer.name,
+    director_proprietor_name: customer.company ? customer.name : undefined,
+    md_name: customer.name,
+    authorized_signatory_name: customer.name,
+    business_contact_person: customer.name,
+    business_contact_name: customer.name,
+    accounting_contact_name: customer.name,
+    registered_address: customer.address,
+    registered_office_address: customer.address,
+    invoice_address: customer.address,
+    billing_office_address: customer.address,
+    phone: customer.phone,
+    office_telephone: customer.phone,
+    business_contact_cell: customer.phone,
+    accounting_contact_phone: customer.phone,
+    business_contact_email: customer.email,
+    office_email: customer.email,
+    accounting_contact_email: customer.email,
+    gst_no: customer.gstNumber,
+    pan_number: pan,
+    pan_no: pan,
+    date: today,
+    classification_date: today,
+  };
+  return map[key] || undefined;
+}
+
+/** Seeds every document's form with whatever recognized fields it has — see autofillValue. */
+function buildAutofilledAnswers(documents: DocumentItem[], customer: AgreementData["customer"]) {
+  const answers: Record<string, Record<string, string>> = {};
+  for (const doc of documents) {
+    const values: Record<string, string> = {};
+    for (const field of doc.template.fields) {
+      const value = autofillValue(field.key, customer);
+      if (value) values[field.key] = value;
+    }
+    if (Object.keys(values).length) answers[doc.template._id] = values;
+  }
+  return answers;
+}
 
 /** One row in the left nav — the agreement step or a document step, with a status dot. */
 function NavItem({
@@ -139,8 +204,9 @@ export default function AgreementSignPage({ params }: { params: Promise<{ token:
         }
         setAgreement(data);
         if (data.customer?.name) setSignedName(data.customer.name);
+        setFormAnswers(buildAutofilledAnswers(data.documents ?? [], data.customer ?? null));
         const docParam = new URLSearchParams(window.location.search).get("doc");
-        if (docParam && (data.documents as DocumentItem[]).some((d) => d.template._id === docParam)) {
+        if (docParam === SUMMARY_SECTION || (docParam && (data.documents as DocumentItem[]).some((d) => d.template._id === docParam))) {
           setActiveSection(docParam);
         }
       })
@@ -177,6 +243,9 @@ export default function AgreementSignPage({ params }: { params: Promise<{ token:
         return;
       }
       setAgreement((a) => (a ? { ...a, status: "signed", signature: { signedName: signedName.trim(), signedAt: new Date().toISOString() } } : a));
+      if (agreement?.documents.every((d) => d.status === "uploaded")) {
+        setActiveSection(SUMMARY_SECTION);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -212,6 +281,9 @@ export default function AgreementSignPage({ params }: { params: Promise<{ token:
           : a
       );
       setSelectedFiles((f) => ({ ...f, [templateId]: null }));
+      if (agreement?.status === "signed" && agreement.documents.every((d) => d.template._id === templateId || d.status === "uploaded")) {
+        setActiveSection(SUMMARY_SECTION);
+      }
     } finally {
       setUploadingId(null);
     }
@@ -253,6 +325,9 @@ export default function AgreementSignPage({ params }: { params: Promise<{ token:
             }
           : a
       );
+      if (agreement?.status === "signed" && agreement.documents.every((d) => d.template._id === templateId || d.status === "uploaded")) {
+        setActiveSection(SUMMARY_SECTION);
+      }
     } finally {
       setSubmittingFormId(null);
     }
@@ -348,6 +423,13 @@ export default function AgreementSignPage({ params }: { params: Promise<{ token:
                 onClick={() => goTo(doc.template._id)}
               />
             ))}
+            <NavItem
+              active={activeSection === SUMMARY_SECTION}
+              icon={PartyPopper}
+              label="Summary"
+              done={doneSteps === totalSteps}
+              onClick={() => goTo(SUMMARY_SECTION)}
+            />
           </nav>
 
           {totalSteps > 1 && (
@@ -369,7 +451,7 @@ export default function AgreementSignPage({ params }: { params: Promise<{ token:
 
       {/* --- Right pane: the active step's content --- */}
       <main className="flex-1">
-        <div className="mx-auto max-w-2xl px-4 py-10 sm:px-8 sm:py-14 lg:px-12">
+        <div className="mx-auto max-w-4xl px-4 py-10 sm:px-8 sm:py-14 lg:px-12">
           {activeSection === AGREEMENT_SECTION ? (
             <div>
               <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">
@@ -455,6 +537,107 @@ export default function AgreementSignPage({ params }: { params: Promise<{ token:
                 </button>
               )}
             </div>
+          ) : activeSection === SUMMARY_SECTION ? (
+            <div>
+              {doneSteps === totalSteps ? (
+                <div className="text-center">
+                  <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-green-500/10">
+                    <PartyPopper className="size-8 text-green-600 dark:text-green-400" />
+                  </div>
+                  <h1 className="mt-4 font-heading text-2xl font-bold text-foreground">All done — thank you!</h1>
+                  <p className="mx-auto mt-2 max-w-md text-sm text-foreground/60">
+                    You&apos;ve signed the agreement and submitted every document we asked for. Download a
+                    copy of anything below for your records any time.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">Summary</h1>
+                  <p className="mt-2 text-sm text-foreground/60">
+                    {doneSteps} of {totalSteps} steps complete — finish the rest below.
+                  </p>
+                </div>
+              )}
+
+              <div className="mt-8 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border-subtle bg-background p-5 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={cn(
+                        "flex size-10 shrink-0 items-center justify-center rounded-xl",
+                        agreement.status === "signed"
+                          ? "bg-green-500/10 text-green-600 dark:text-green-400"
+                          : "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
+                      )}
+                    >
+                      {agreement.status === "signed" ? <CheckCircle2 className="size-5" /> : <Clock className="size-5" />}
+                    </span>
+                    <div>
+                      <p className="font-medium text-foreground">{agreement.template.title}</p>
+                      <p className="text-xs text-foreground/50">
+                        {agreement.status === "signed" && agreement.signature
+                          ? `Signed ${formatDateTime(agreement.signature.signedAt)}`
+                          : "Not signed yet"}
+                      </p>
+                    </div>
+                  </div>
+                  {agreement.status === "signed" ? (
+                    <a
+                      href={`/api/agreements/${token}/pdf${timeZone ? `?tz=${encodeURIComponent(timeZone)}` : ""}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-navy hover:underline dark:text-white"
+                    >
+                      <Download className="size-4" /> Download
+                    </a>
+                  ) : (
+                    <Button size="sm" variant="ghost" onClick={() => goTo(AGREEMENT_SECTION)}>
+                      Sign now
+                    </Button>
+                  )}
+                </div>
+
+                {agreement.documents.map((doc) => (
+                  <div
+                    key={doc.template._id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border-subtle bg-background p-5 shadow-sm"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={cn(
+                          "flex size-10 shrink-0 items-center justify-center rounded-xl",
+                          doc.status === "uploaded"
+                            ? "bg-green-500/10 text-green-600 dark:text-green-400"
+                            : "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
+                        )}
+                      >
+                        {doc.status === "uploaded" ? <CheckCircle2 className="size-5" /> : <Clock className="size-5" />}
+                      </span>
+                      <div>
+                        <p className="font-medium text-foreground">{doc.template.title}</p>
+                        <p className="text-xs text-foreground/50">
+                          {doc.status === "uploaded" && doc.upload
+                            ? `Submitted ${formatDateTime(doc.upload.uploadedAt)}`
+                            : "Not completed yet"}
+                        </p>
+                      </div>
+                    </div>
+                    {doc.status === "uploaded" ? (
+                      <a
+                        href={`/api/agreements/${token}/documents/${doc.template._id}/submission`}
+                        className="inline-flex items-center gap-1.5 text-sm font-medium text-navy hover:underline dark:text-white"
+                      >
+                        <Download className="size-4" /> Download
+                      </a>
+                    ) : (
+                      <Button size="sm" variant="ghost" onClick={() => goTo(doc.template._id)}>
+                        Complete now
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : activeDoc ? (
             (() => {
               const item = activeDoc;
@@ -485,25 +668,33 @@ export default function AgreementSignPage({ params }: { params: Promise<{ token:
 
                   <p className="mt-2 text-sm text-foreground/60">
                     Fill this form directly, or download it, print/fill by hand, and upload the completed
-                    copy (a photo or scan works fine).
+                    copy (a photo or scan works fine). We&apos;ve pre-filled what we already have on
+                    file — please review and complete the rest.
                   </p>
 
                   <div className="mt-6 rounded-2xl border border-border-subtle bg-background p-6 shadow-sm">
                     {item.status === "uploaded" && item.upload && (
-                      <p className="mb-5 flex items-center gap-1.5 text-xs text-foreground/50">
+                      <p className="mb-5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-foreground/50">
                         <CheckCircle2 className="size-3.5 shrink-0 text-green-600 dark:text-green-400" />
                         {hasFields ? "Submitted" : "Uploaded"} <span className="font-medium text-foreground/70">{item.upload.fileName}</span> on{" "}
-                        {formatDateTime(item.upload.uploadedAt)} — you can replace it below.
+                        {formatDateTime(item.upload.uploadedAt)} —{" "}
+                        <a
+                          href={`/api/agreements/${token}/documents/${templateId}/submission`}
+                          className="inline-flex items-center gap-1 font-medium text-navy hover:underline dark:text-white"
+                        >
+                          <Download className="size-3" /> download it
+                        </a>{" "}
+                        or replace it below.
                       </p>
                     )}
 
                     {hasFields && (
                       <div className="space-y-4">
-                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                           {item.template.fields.map((field) => {
                             const value = formAnswers[templateId]?.[field.key] ?? "";
                             const onChange = (v: string) => setFieldAnswer(templateId, field.key, v);
-                            const span = field.type === "textarea" ? "sm:col-span-2" : "";
+                            const span = field.type === "textarea" ? "sm:col-span-2 lg:col-span-3" : "";
                             return (
                               <div key={field.key} className={span}>
                                 <label className="mb-1.5 block text-xs font-medium text-foreground/70">

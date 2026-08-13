@@ -17,7 +17,7 @@ export async function GET(
 
   const agreement = await Agreement.findOne({ token })
     .populate("shipment", "trackingNumber carrierTrackingNumber origin destination")
-    .populate("customer", "name");
+    .populate("customer", "name company email phone address gstNumber");
 
   if (!agreement) return NextResponse.json({ error: "Agreement not found" }, { status: 404 });
 
