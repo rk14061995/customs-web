@@ -39,6 +39,33 @@ function vLine(doc: PDFKit.PDFDocument, x: number, y1: number, y2: number) {
   doc.strokeColor(BORDER).lineWidth(1).moveTo(sx, y1).lineTo(sx, y2).stroke();
 }
 
+/**
+ * Renders an item description that may span multiple lines (split on \n) and mark
+ * words/phrases bold with **double asterisks** — e.g. "**Courier Booking**\n    AWB...".
+ * Returns the y position after the last line, like doc.y would after a plain doc.text().
+ */
+function drawItemDescription(doc: PDFKit.PDFDocument, text: string, x: number, y: number, width: number): number {
+  let curY = y;
+  text.split("\n").forEach((line) => {
+    const segments = line.split(/(\*\*.+?\*\*)/g).filter((s) => s.length > 0);
+    (segments.length > 0 ? segments : [""]).forEach((segment, i) => {
+      const bold = segment.startsWith("**") && segment.endsWith("**");
+      const content = bold ? segment.slice(2, -2) : segment;
+      const isFirst = i === 0;
+      const isLast = i === (segments.length > 0 ? segments.length : 1) - 1;
+      doc.font(bold ? "Helvetica-Bold" : "Helvetica").fontSize(9).fillColor(DARK);
+      if (isFirst) {
+        doc.text(content, x, curY, { width, continued: !isLast });
+      } else {
+        doc.text(content, { continued: !isLast });
+      }
+    });
+    curY = doc.y;
+  });
+  doc.font("Helvetica").fontSize(9).fillColor(DARK);
+  return curY;
+}
+
 /** Formats a date the way Indian tax invoices conventionally do, e.g. "10-Aug-26". */
 function formatInvoiceDate(date: string | Date) {
   const d = new Date(date);
@@ -247,8 +274,7 @@ export function generateBillPdf({
     items.forEach((item, i) => {
       const rowTop = y + 5;
       doc.text(String(i + 1), slColX, rowTop, { width: slColW, align: "center" });
-      doc.text(item.description, descColX + 4, rowTop, { width: descColW - 8 });
-      const descBottom = doc.y;
+      const descBottom = drawItemDescription(doc, item.description, descColX + 4, rowTop, descColW - 8);
       doc.text(item.hsnSac || "-", hsnColX, rowTop, { width: hsnColW, align: "center" });
       doc.text(`${item.quantity} ${item.unit || ""}`.trim(), qtyColX, rowTop, { width: qtyColW, align: "center" });
       doc.text(`${item.amount.toLocaleString("en-IN")}`, amtColX, rowTop, { width: amtColW - 8, align: "right" });

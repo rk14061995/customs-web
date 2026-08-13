@@ -43,9 +43,15 @@ export async function POST(req: NextRequest) {
     const items = body.items ?? [];
     const { subtotal, taxAmount, total } = computeBillTotals(items, taxRate);
 
+    // The admin UI pre-generates a bill number when the "Add Bill" form opens so it can be
+    // quoted inside an item's description (see BillsManager's buildShipmentItem) before the
+    // bill is actually saved. Honor that value if present so the two stay in sync; otherwise
+    // fall back to minting one here, same as before.
+    const billNumber = typeof body.billNumber === "string" && body.billNumber.trim() ? body.billNumber.trim() : generateBillNumber();
+
     const doc = await Bill.create({
       ...body,
-      billNumber: generateBillNumber(),
+      billNumber,
       shipment: body.shipment || undefined,
       taxRate,
       subtotal,

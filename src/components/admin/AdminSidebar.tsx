@@ -23,6 +23,7 @@ import {
   FileSignature,
   FileText,
   BadgeCheck,
+  FolderOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +35,7 @@ const navItems = [
   { label: "Bills", href: "/admin/bills", icon: FileText },
   { label: "Agreements", href: "/admin/agreements", icon: FileSignature },
   { label: "Credit Approvals", href: "/admin/credit-approvals", icon: BadgeCheck },
+  { label: "Documents", href: "/admin/documents", icon: FolderOpen },
   { label: "Customers", href: "/admin/customers", icon: Contact2 },
   { label: "Carriers", href: "/admin/carriers", icon: Ship },
   { label: "Services", href: "/admin/services", icon: Package },

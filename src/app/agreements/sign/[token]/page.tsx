@@ -1,14 +1,21 @@
 "use client";
 
 import { use, useEffect, useRef, useState } from "react";
-import { Loader2, CheckCircle2, FileText, AlertCircle } from "lucide-react";
+import { Loader2, CheckCircle2, FileText, AlertCircle, Download, UploadCloud, Clock } from "lucide-react";
 import Container from "@/components/ui/Container";
 import Button from "@/components/ui/Button";
 import SignaturePad, { type SignaturePadHandle } from "@/components/agreements/SignaturePad";
 import { formatDateTime } from "@/lib/utils";
 import ClauseHtml from "@/components/agreements/ClauseHtml";
 
+type DocumentItem = {
+  template: { _id: string; title: string; category: string; fileName: string };
+  status: "pending" | "uploaded";
+  upload?: { fileName: string; uploadedAt: string } | null;
+};
+
 type AgreementData = {
+  token: string;
   status: "pending" | "signed" | "expired";
   shipment: { trackingNumber: string; origin: string; destination: string } | null;
   customer: { name: string } | null;
@@ -20,6 +27,7 @@ type AgreementData = {
     clauses: string[];
   };
   signature?: { signedName: string; signedAt: string };
+  documents: DocumentItem[];
 };
 
 export default function AgreementSignPage({ params }: { params: Promise<{ token: string }> }) {
@@ -34,6 +42,10 @@ export default function AgreementSignPage({ params }: { params: Promise<{ token:
   const [submitError, setSubmitError] = useState("");
   const padRef = useRef<SignaturePadHandle>(null);
   const [timeZone, setTimeZone] = useState("");
+
+  const [selectedFiles, setSelectedFiles] = useState<Record<string, File | null>>({});
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [uploadErrors, setUploadErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
@@ -85,6 +97,41 @@ export default function AgreementSignPage({ params }: { params: Promise<{ token:
       setAgreement((a) => (a ? { ...a, status: "signed", signature: { signedName: signedName.trim(), signedAt: new Date().toISOString() } } : a));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleUploadDocument = async (templateId: string) => {
+    const file = selectedFiles[templateId];
+    if (!file) {
+      setUploadErrors((e) => ({ ...e, [templateId]: "Choose a file first" }));
+      return;
+    }
+    setUploadingId(templateId);
+    setUploadErrors((e) => ({ ...e, [templateId]: "" }));
+    try {
+      const body = new FormData();
+      body.set("file", file);
+      const res = await fetch(`/api/agreements/${token}/documents/${templateId}/upload`, { method: "POST", body });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setUploadErrors((e) => ({ ...e, [templateId]: json.error ?? "Upload failed" }));
+        return;
+      }
+      setAgreement((a) =>
+        a
+          ? {
+              ...a,
+              documents: a.documents.map((item) =>
+                item.template._id === templateId
+                  ? { ...item, status: "uploaded", upload: { fileName: json.fileName, uploadedAt: json.uploadedAt } }
+                  : item
+              ),
+            }
+          : a
+      );
+      setSelectedFiles((f) => ({ ...f, [templateId]: null }));
+    } finally {
+      setUploadingId(null);
     }
   };
 
@@ -198,6 +245,82 @@ export default function AgreementSignPage({ params }: { params: Promise<{ token:
             <Button onClick={handleSubmit} disabled={submitting} className="w-full">
               {submitting ? <Loader2 className="size-4 animate-spin" /> : "Sign Agreement"}
             </Button>
+          </div>
+        )}
+
+        {agreement.documents.length > 0 && (
+          <div className="mt-8 border-t border-border-subtle pt-6">
+            <h2 className="font-heading text-base font-semibold text-foreground">Documents Required</h2>
+            <p className="mt-1 text-sm text-foreground/70">
+              Download each form below, print and fill it by hand, then upload the completed copy (a
+              photo or scan works fine).
+            </p>
+
+            <div className="mt-4 space-y-4">
+              {agreement.documents.map((item) => {
+                const templateId = item.template._id;
+                return (
+                  <div key={templateId} className="rounded-xl border border-border-subtle p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-medium text-foreground">{item.template.title}</p>
+                        <p className="text-xs text-foreground/50">{item.template.category}</p>
+                      </div>
+                      <span
+                        className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
+                          item.status === "uploaded"
+                            ? "bg-green-500/10 text-green-600 dark:text-green-400"
+                            : "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
+                        }`}
+                      >
+                        {item.status === "uploaded" ? <CheckCircle2 className="size-3" /> : <Clock className="size-3" />}
+                        {item.status === "uploaded" ? "Uploaded" : "Pending"}
+                      </span>
+                    </div>
+
+                    <a
+                      href={`/api/agreements/${token}/documents/${templateId}/download`}
+                      className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-navy hover:underline dark:text-white"
+                    >
+                      <Download className="size-4" /> Download blank form
+                    </a>
+
+                    {item.status === "uploaded" && item.upload && (
+                      <p className="mt-2 text-xs text-foreground/50">
+                        Uploaded {item.upload.fileName} on {formatDateTime(item.upload.uploadedAt)} — you can replace it below.
+                      </p>
+                    )}
+
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <input
+                        type="file"
+                        onChange={(e) =>
+                          setSelectedFiles((f) => ({ ...f, [templateId]: e.target.files?.[0] ?? null }))
+                        }
+                        className="flex-1 rounded-xl border border-border-subtle bg-background px-3 py-2 text-sm outline-none file:mr-3 file:rounded-lg file:border-0 file:bg-navy/10 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-navy"
+                      />
+                      <Button
+                        size="sm"
+                        icon={UploadCloud}
+                        onClick={() => handleUploadDocument(templateId)}
+                        disabled={uploadingId === templateId}
+                      >
+                        {uploadingId === templateId ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : item.status === "uploaded" ? (
+                          "Replace"
+                        ) : (
+                          "Upload"
+                        )}
+                      </Button>
+                    </div>
+                    {uploadErrors[templateId] && (
+                      <p className="mt-1.5 text-xs text-red-500">{uploadErrors[templateId]}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>

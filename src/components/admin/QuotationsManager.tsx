@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Pencil, Trash2, X, Loader2, Search, Eye } from "lucide-react";
+import { Plus, Pencil, Trash2, X, Loader2, Search, Eye, MessageCircle } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { computeChargeAmount, computeQuotationTotals } from "@/lib/quotationUtils";
 
@@ -222,6 +222,30 @@ export default function QuotationsManager() {
     await load();
   };
 
+  /** Opens WhatsApp with the quotation summary pre-filled to the customer's mobile — same text as the print page's WhatsApp button, just reachable straight from the list. */
+  const handleSendWhatsApp = (row: Quotation) => {
+    const digits = String(row.customer?.phone ?? "").replace(/[^0-9]/g, "");
+    if (!digits) {
+      alert("This customer has no phone number on file.");
+      return;
+    }
+    const { baseAmount } = computeQuotationTotals(row.charges, row.weightKg, row.taxRate);
+    const lines = row.charges.map(
+      (c) => `${c.label}: ${row.currency} ${computeChargeAmount(c, row.weightKg, baseAmount).toLocaleString()}`
+    );
+    const text = [
+      `Quotation ${row.quoteNumber} — Rana Forwarder`,
+      `${row.origin} → ${row.destination} (${row.serviceType}, ${row.weightKg}kg)`,
+      "",
+      ...lines,
+      "",
+      `Subtotal: ${row.currency} ${row.subtotal.toLocaleString()}`,
+      `GST (${row.taxRate}%): ${row.currency} ${row.taxAmount.toLocaleString()}`,
+      `Total: ${row.currency} ${row.total.toLocaleString()}`,
+    ].join("\n");
+    window.open(`https://wa.me/${digits}?text=${encodeURIComponent(text)}`, "_blank");
+  };
+
   return (
     <div>
       <div className="mb-8 flex items-start justify-between gap-4">
@@ -320,6 +344,14 @@ export default function QuotationsManager() {
                           className="flex size-8 items-center justify-center rounded-lg text-foreground/50 hover:bg-navy/10 hover:text-navy"
                         >
                           <Eye className="size-4" />
+                        </button>
+                        <button
+                          onClick={() => handleSendWhatsApp(row)}
+                          aria-label="Send via WhatsApp"
+                          title="Send via WhatsApp"
+                          className="flex size-8 items-center justify-center rounded-lg text-foreground/50 hover:bg-green-500/10 hover:text-green-600 dark:hover:text-green-400"
+                        >
+                          <MessageCircle className="size-4" />
                         </button>
                         <button
                           onClick={() => openEdit(row)}

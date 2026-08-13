@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, X, Loader2, FileText } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Plus, Pencil, Trash2, X, Loader2, FileText, Bold } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { formatDate } from "@/lib/utils";
 import { computeBillTotals } from "@/lib/billUtils";
@@ -21,7 +21,19 @@ const TAX_TYPES = [
 ];
 
 type Customer = { _id: string; name: string; company?: string };
-type Shipment = { _id: string; trackingNumber: string; origin: string; destination: string };
+type Shipment = {
+  _id: string;
+  trackingNumber: string;
+  carrierTrackingNumber?: string;
+  origin: string;
+  destination: string;
+  weight?: string;
+  packages?: number;
+  cost?: number;
+  serviceType?: string;
+  estimatedDelivery?: string;
+  customer?: { name: string; company?: string };
+};
 type BillItem = { description: string; hsnSac?: string; unit?: string; quantity: number; rate: number; amount: number };
 type Bill = {
   _id: string;
@@ -43,9 +55,85 @@ type Bill = {
 
 const emptyItem: BillItem = { description: "", hsnSac: "", unit: "Nos", quantity: 1, rate: 0, amount: 0 };
 
+/** True when an item still has no meaningful content — safe to auto-fill without clobbering user input. */
+function isBlankItem(item: BillItem) {
+  return !item.description.trim() && item.quantity === 1 && item.rate === 0;
+}
+
+function sameItem(a: BillItem, b: BillItem) {
+  return (
+    a.description === b.description &&
+    a.hsnSac === b.hsnSac &&
+    a.unit === b.unit &&
+    a.quantity === b.quantity &&
+    a.rate === b.rate
+  );
+}
+
+/** Same random-suffixed scheme as `generateBillNumber` in shipmentUtils — duplicated here since that
+ *  module also imports Mongoose models and can't be pulled into a client bundle. */
+function generatePendingBillNumber() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let suffix = "";
+  for (let i = 0; i < 3; i++) suffix += chars[Math.floor(Math.random() * chars.length)];
+  return `BILL-${Date.now().toString(36).toUpperCase()}${suffix}`;
+}
+
+/** Formats a date Tally-style, e.g. "27.07.26". */
+function formatShortDate(date?: string) {
+  if (!date) return "";
+  const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return "";
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = String(d.getFullYear()).slice(-2);
+  return `${day}.${month}.${year}`;
+}
+
+/** Splits a free-text weight like "80 kg" into a numeric quantity and its unit. */
+function parseWeight(weight?: string): { qty: number; unit: string } {
+  const match = weight?.trim().match(/^([\d.]+)\s*(.*)$/);
+  if (match) {
+    const qty = parseFloat(match[1]);
+    return { qty: Number.isFinite(qty) && qty > 0 ? qty : 1, unit: match[2].trim() || "Kgs" };
+  }
+  return { qty: 1, unit: weight?.trim() || "Kgs" };
+}
+
+/**
+ * Builds a "Courier Booking" line item from a shipment, Tally-style — AWB/destination/date and box
+ * count as description lines, weight as the billed quantity. Mirrors the Sales_824 sample invoice.
+ */
+function buildShipmentItem(ship: Shipment, billNumber: string): BillItem {
+  const boxes = ship.packages && ship.packages > 0 ? ship.packages : 1;
+  const { qty, unit } = parseWeight(ship.weight);
+  const rate = ship.cost ? Math.round((ship.cost / qty) * 100) / 100 : 0;
+  const awb = ship.carrierTrackingNumber || ship.trackingNumber;
+  const date = formatShortDate(ship.estimatedDelivery);
+  const customerLabel = (ship.customer?.company || ship.customer?.name || "").toUpperCase();
+
+  const lines = [
+    "**Courier Booking**",
+    `    ${[awb, ship.destination?.toUpperCase(), date].filter(Boolean).join("//")}`,
+    `    INVOICE NO. ${billNumber || "(auto)"}`,
+    `    NO. OF BOXES: ${boxes}`,
+  ];
+  if (customerLabel) lines.push(`    ${customerLabel}`);
+
+  return {
+    description: lines.join("\n"),
+    hsnSac: "996812",
+    unit,
+    quantity: qty,
+    rate,
+    amount: rate * qty,
+  };
+}
+
 const emptyForm = {
   customer: "",
   shipment: "",
+  billNumber: "",
   billDate: new Date().toISOString().slice(0, 10),
   dueDate: "",
   items: [emptyItem],
@@ -67,6 +155,10 @@ export default function BillsManager() {
   const [formValues, setFormValues] = useState<typeof emptyForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // Tracks the item auto-filled from the currently selected shipment, so we can
+  // refresh it in place if the shipment changes again without clobbering a row
+  // the admin has since edited by hand.
+  const [autoShipmentItem, setAutoShipmentItem] = useState<BillItem | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -99,7 +191,11 @@ export default function BillsManager() {
 
   const openCreate = () => {
     setEditing(null);
-    setFormValues(emptyForm);
+    // Pre-generate the bill number so it can be quoted inside the item description
+    // (see buildShipmentItem) before the bill is actually saved; the server uses
+    // this same value instead of minting its own, so it stays consistent.
+    setFormValues({ ...emptyForm, billNumber: generatePendingBillNumber() });
+    setAutoShipmentItem(null);
     setError("");
     setModalOpen(true);
   };
@@ -109,6 +205,7 @@ export default function BillsManager() {
     setFormValues({
       customer: row.customer?._id ?? "",
       shipment: row.shipment?._id ?? "",
+      billNumber: row.billNumber,
       billDate: row.billDate,
       dueDate: row.dueDate ?? "",
       items: row.items.length ? row.items : [emptyItem],
@@ -118,11 +215,28 @@ export default function BillsManager() {
       status: row.status,
       notes: row.notes ?? "",
     });
+    setAutoShipmentItem(null);
     setError("");
     setModalOpen(true);
   };
 
   const closeModal = () => setModalOpen(false);
+
+  /** Selecting a shipment pulls its courier tracking number, weight and box count into the first item row. */
+  const handleShipmentChange = (id: string) => {
+    const ship = id ? shipments.find((s) => s._id === id) : undefined;
+    const autoItem = ship ? buildShipmentItem(ship, formValues.billNumber) : null;
+    setFormValues((v) => {
+      if (!autoItem) return { ...v, shipment: id };
+      const first = v.items[0];
+      // Only overwrite the first row if it's still blank, or it's the auto-fill
+      // from a previously selected shipment — never a row the admin edited.
+      const canOverwrite = !first || isBlankItem(first) || (autoShipmentItem && sameItem(first, autoShipmentItem));
+      const items = canOverwrite ? [autoItem, ...v.items.slice(1)] : [autoItem, ...v.items];
+      return { ...v, shipment: id, items };
+    });
+    setAutoShipmentItem(autoItem);
+  };
 
   const numericItemFields: (keyof BillItem)[] = ["quantity", "rate"];
 
@@ -142,6 +256,30 @@ export default function BillsManager() {
 
   const removeItem = (index: number) =>
     setFormValues((v) => ({ ...v, items: v.items.filter((_, i) => i !== index) }));
+
+  // One textarea ref per item row, so the Bold button knows which text is highlighted.
+  const descriptionRefs = useRef<(HTMLTextAreaElement | null)[]>([]);
+
+  /** Wraps the highlighted text in a description box with **bold** markers (or un-bolds it if it already is). */
+  const toggleBold = (index: number) => {
+    const el = descriptionRefs.current[index];
+    if (!el) return;
+    const { selectionStart, selectionEnd, value } = el;
+    if (selectionStart == null || selectionEnd == null || selectionStart === selectionEnd) {
+      el.focus();
+      return; // Nothing highlighted — select some text first.
+    }
+    const selected = value.slice(selectionStart, selectionEnd);
+    const isBold = selected.startsWith("**") && selected.endsWith("**") && selected.length > 4;
+    const replacement = isBold ? selected.slice(2, -2) : `**${selected}**`;
+    const nextValue = value.slice(0, selectionStart) + replacement + value.slice(selectionEnd);
+    updateItem(index, "description", nextValue);
+    // Re-select the (now bolded/unbolded) text after React re-renders the controlled value.
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(selectionStart, selectionStart + replacement.length);
+    });
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -305,7 +443,7 @@ export default function BillsManager() {
                 <label className="mb-1.5 block text-sm font-medium text-foreground">Shipment (optional)</label>
                 <select
                   value={formValues.shipment}
-                  onChange={(e) => setFormValues((v) => ({ ...v, shipment: e.target.value }))}
+                  onChange={(e) => handleShipmentChange(e.target.value)}
                   className="w-full rounded-xl border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none focus:border-navy"
                 >
                   <option value="">None</option>
@@ -313,6 +451,9 @@ export default function BillsManager() {
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
                 </select>
+                <p className="mt-1 text-xs text-foreground/50">
+                  Selecting a shipment fills the first item row with its AWB/tracking number, weight and box count.
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -342,12 +483,27 @@ export default function BillsManager() {
                   {formValues.items.map((item, i) => (
                     <div key={i} className="space-y-1.5 rounded-xl border border-border-subtle p-2">
                       <div className="flex items-start gap-2">
-                        <input
-                          value={item.description}
-                          onChange={(e) => updateItem(i, "description", e.target.value)}
-                          placeholder="Description"
-                          className="flex-1 rounded-xl border border-border-subtle bg-background px-3 py-2 text-sm outline-none focus:border-navy"
-                        />
+                        <div className="relative flex-1">
+                          <textarea
+                            ref={(el) => {
+                              descriptionRefs.current[i] = el;
+                            }}
+                            value={item.description}
+                            onChange={(e) => updateItem(i, "description", e.target.value)}
+                            placeholder="Description"
+                            rows={item.description.includes("\n") ? 5 : 1}
+                            className="w-full resize-y rounded-xl border border-border-subtle bg-background px-3 py-2 pr-9 text-sm outline-none focus:border-navy"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => toggleBold(i)}
+                            aria-label="Bold selected text"
+                            title="Highlight text above, then click to bold it"
+                            className="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-md text-foreground/50 hover:bg-navy/10 hover:text-navy"
+                          >
+                            <Bold className="size-3.5" />
+                          </button>
+                        </div>
                         <input
                           value={item.hsnSac ?? ""}
                           onChange={(e) => updateItem(i, "hsnSac", e.target.value)}
