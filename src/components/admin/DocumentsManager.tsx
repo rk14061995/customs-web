@@ -1,12 +1,67 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Plus, Trash2, X, Loader2, Download, Pencil, CheckCircle2, Clock, ListChecks, Eye, RotateCcw } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Plus,
+  Trash2,
+  X,
+  Loader2,
+  Download,
+  Pencil,
+  CheckCircle2,
+  Clock,
+  ListChecks,
+  Eye,
+  RotateCcw,
+  Search,
+} from "lucide-react";
 import Button from "@/components/ui/Button";
-import { formatDate, formatDateTime } from "@/lib/utils";
+import AgreementPreviewModal from "@/components/admin/AgreementPreviewModal";
+import ClauseEditor from "@/components/admin/ClauseEditor";
+import { cn, formatDate, formatDateTime } from "@/lib/utils";
 
 const inputClass =
   "w-full rounded-xl border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none focus:border-navy";
+
+// --- Agreement template + per-shipment agreements ---
+
+type AgreementTemplateData = {
+  title: string;
+  forwarderName: string;
+  forwarderAddress: string;
+  subject: string;
+  clauses: string[];
+  authorizedSignatoryName: string;
+  authorizedSignatoryDesignation: string;
+};
+
+const emptyAgreementTemplate: AgreementTemplateData = {
+  title: "",
+  forwarderName: "",
+  forwarderAddress: "",
+  subject: "",
+  clauses: [],
+  authorizedSignatoryName: "",
+  authorizedSignatoryDesignation: "",
+};
+
+type AgreementRow = {
+  _id: string;
+  shipment: { _id: string; trackingNumber: string; origin: string; destination: string } | null;
+  customer: { name: string; company?: string; email: string } | null;
+  status: "pending" | "signed" | "expired";
+  generatedAt: string;
+  expiresAt: string;
+  signature?: { signedName: string; signedAt: string };
+};
+
+const agreementStatusColor: Record<string, string> = {
+  pending: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400",
+  signed: "bg-green-500/10 text-green-600 dark:text-green-400",
+  expired: "bg-foreground/10 text-foreground/60",
+};
+
+// --- Document templates (blank forms, optionally fillable online) ---
 
 const FIELD_TYPES = [
   { value: "text", label: "Short text" },
@@ -144,16 +199,51 @@ type ViewData = {
   uploadedAt: string;
 };
 
+// --- Combined per-shipment row (an Agreement and a DocumentRequest are provisioned together) ---
+
+type CombinedRow = {
+  key: string;
+  shipmentId: string;
+  shipment: { trackingNumber: string; origin: string; destination: string };
+  customer: { name: string; company?: string; email: string } | null;
+  agreement: AgreementRow | null;
+  request: RequestRow | null;
+};
+
 function formatBytes(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
+/** Documents actually attached to a shipment (excluded ones filtered out) — shared by search/filter and row rendering. */
+function getAttachedItems(row: CombinedRow): RequestItem[] {
+  const excluded = new Set((row.request?.excludedTemplates ?? []).map(String));
+  return (row.request?.items ?? []).filter((i) => i.template && !excluded.has(i.template._id));
+}
+
+/** Rolls a row's attached documents up into one status, for the filter dropdown and the preview modal. */
+function getDocumentsStatus(attached: RequestItem[]): "none" | "complete" | "pending" {
+  if (attached.length === 0) return "none";
+  return attached.every((i) => i.status === "uploaded") ? "complete" : "pending";
+}
+
 export default function DocumentsManager() {
   const [templates, setTemplates] = useState<TemplateRow[]>([]);
   const [requests, setRequests] = useState<RequestRow[]>([]);
+  const [agreementTemplate, setAgreementTemplate] = useState<AgreementTemplateData>(emptyAgreementTemplate);
+  const [agreements, setAgreements] = useState<AgreementRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<"shipments" | "templates">("shipments");
+
+  const [shipmentQuery, setShipmentQuery] = useState("");
+  const [agreementFilter, setAgreementFilter] = useState<"all" | "pending" | "signed" | "expired" | "none">("all");
+  const [documentsFilter, setDocumentsFilter] = useState<"all" | "complete" | "pending" | "none">("all");
+
+  const [savingAgreementTemplate, setSavingAgreementTemplate] = useState(false);
+  const [agreementTemplateSaved, setAgreementTemplateSaved] = useState(false);
+  const [previewShipmentId, setPreviewShipmentId] = useState<string | null>(null);
+  const [deletingAgreementId, setDeletingAgreementId] = useState<string | null>(null);
 
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [templateForm, setTemplateForm] = useState({ title: "", category: "" });
@@ -181,18 +271,118 @@ export default function DocumentsManager() {
 
   const load = async () => {
     setLoading(true);
-    const [templatesRes, requestsRes] = await Promise.all([
+    const [templatesRes, requestsRes, agreementTemplateRes, agreementsRes] = await Promise.all([
       fetch("/api/admin/document-templates"),
       fetch("/api/admin/document-requests"),
+      fetch("/api/admin/agreement-template"),
+      fetch("/api/admin/agreements"),
     ]);
     setTemplates(await templatesRes.json());
     setRequests(await requestsRes.json());
+    setAgreementTemplate(await agreementTemplateRes.json());
+    setAgreements(await agreementsRes.json());
     setLoading(false);
   };
 
   useEffect(() => {
     load();
   }, []);
+
+  // One row per shipment — an Agreement and a DocumentRequest are always provisioned together,
+  // so this just joins the two lists on shipment id for a single combined table.
+  const combinedRows = useMemo<CombinedRow[]>(() => {
+    const byShipment = new Map<string, CombinedRow>();
+    for (const a of agreements) {
+      if (!a.shipment) continue;
+      byShipment.set(a.shipment._id, {
+        key: a.shipment._id,
+        shipmentId: a.shipment._id,
+        shipment: a.shipment,
+        customer: a.customer,
+        agreement: a,
+        request: null,
+      });
+    }
+    for (const r of requests) {
+      if (!r.shipment) continue;
+      const existing = byShipment.get(r.shipment._id);
+      if (existing) existing.request = r;
+      else
+        byShipment.set(r.shipment._id, {
+          key: r.shipment._id,
+          shipmentId: r.shipment._id,
+          shipment: r.shipment,
+          customer: r.customer,
+          agreement: null,
+          request: r,
+        });
+    }
+    return Array.from(byShipment.values()).sort((a, b) => a.shipment.trackingNumber.localeCompare(b.shipment.trackingNumber));
+  }, [agreements, requests]);
+
+  // Search (tracking number / route / customer) + status filters over the shipments table.
+  const filteredRows = useMemo(() => {
+    const q = shipmentQuery.trim().toLowerCase();
+    return combinedRows.filter((row) => {
+      if (q) {
+        const haystack = [
+          row.shipment.trackingNumber,
+          row.shipment.origin,
+          row.shipment.destination,
+          row.customer?.name,
+          row.customer?.company,
+          row.customer?.email,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      if (agreementFilter !== "all" && (row.agreement?.status ?? "none") !== agreementFilter) return false;
+      if (documentsFilter !== "all" && getDocumentsStatus(getAttachedItems(row)) !== documentsFilter) return false;
+      return true;
+    });
+  }, [combinedRows, shipmentQuery, agreementFilter, documentsFilter]);
+
+  // --- Agreement template + per-shipment agreements ---
+
+  const saveAgreementTemplate = async () => {
+    setSavingAgreementTemplate(true);
+    setAgreementTemplateSaved(false);
+    await fetch("/api/admin/agreement-template", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(agreementTemplate),
+    });
+    setSavingAgreementTemplate(false);
+    setAgreementTemplateSaved(true);
+    setTimeout(() => setAgreementTemplateSaved(false), 2000);
+  };
+
+  const updateClause = (index: number, value: string) => {
+    setAgreementTemplate((t) => ({ ...t, clauses: t.clauses.map((c, i) => (i === index ? value : c)) }));
+  };
+
+  const addClause = () => setAgreementTemplate((t) => ({ ...t, clauses: [...t.clauses, ""] }));
+
+  const removeClause = (index: number) =>
+    setAgreementTemplate((t) => ({ ...t, clauses: t.clauses.filter((_, i) => i !== index) }));
+
+  const handleDeleteAgreement = async (row: AgreementRow) => {
+    if (!row.shipment) return;
+    const warning =
+      row.status === "signed"
+        ? `This agreement was already signed by ${row.signature?.signedName ?? "the customer"}. Delete it anyway so a new one can be generated?`
+        : `Delete this agreement for ${row.shipment.trackingNumber}?`;
+    if (!confirm(warning)) return;
+    setDeletingAgreementId(row._id);
+    try {
+      await fetch(`/api/admin/agreements/${row.shipment._id}`, { method: "DELETE" });
+      await load();
+    } finally {
+      setDeletingAgreementId(null);
+    }
+  };
 
   // --- Templates ---
 
@@ -354,16 +544,142 @@ export default function DocumentsManager() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="font-heading text-2xl font-bold text-foreground">Documents</h1>
+      <div className="mb-6">
+        <h1 className="font-heading text-2xl font-bold text-foreground">Agreements &amp; Documents</h1>
         <p className="mt-1 text-sm text-foreground/60">
-          Upload blank forms (KYC, MSME Agreement, etc). Every form is attached to every shipment by
-          default and shared on that shipment&apos;s Agreement signing link — deselect any that don&apos;t apply
-          to a given shipment below.
+          One customer-facing link per shipment covers both — the goods-handover agreement and any
+          paperwork (KYC, MSME Agreement, etc).
         </p>
       </div>
 
-      {/* --- Templates --- */}
+      <div className="mb-8 flex gap-1 border-b border-border-subtle">
+        {(
+          [
+            { key: "shipments" as const, label: "Shipments" },
+            { key: "templates" as const, label: "Templates" },
+          ]
+        ).map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setActiveTab(tab.key)}
+            className={cn(
+              "-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition-colors",
+              activeTab === tab.key
+                ? "border-navy text-navy dark:text-white"
+                : "border-transparent text-foreground/50 hover:text-foreground"
+            )}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "templates" && (
+        <>
+      {/* --- Agreement Template --- */}
+      <section className="mb-10 rounded-2xl border border-border-subtle bg-background p-6">
+        <h2 className="font-heading text-lg font-semibold text-foreground">Agreement Template</h2>
+        <p className="mt-1 text-sm text-foreground/60">
+          Generated automatically when a shipment is booked — edits here only apply to agreements generated afterward.
+        </p>
+
+        {loading ? (
+          <Loader2 className="mt-6 size-5 animate-spin text-foreground/40" />
+        ) : (
+          <div className="mt-6 max-w-3xl space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Title</label>
+              <input
+                value={agreementTemplate.title}
+                onChange={(e) => setAgreementTemplate((t) => ({ ...t, title: e.target.value }))}
+                className={inputClass}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-foreground">Forwarder Name</label>
+                <input
+                  value={agreementTemplate.forwarderName}
+                  onChange={(e) => setAgreementTemplate((t) => ({ ...t, forwarderName: e.target.value }))}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-foreground">Forwarder Address</label>
+                <input
+                  value={agreementTemplate.forwarderAddress}
+                  onChange={(e) => setAgreementTemplate((t) => ({ ...t, forwarderAddress: e.target.value }))}
+                  className={inputClass}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Subject</label>
+              <input
+                value={agreementTemplate.subject}
+                onChange={(e) => setAgreementTemplate((t) => ({ ...t, subject: e.target.value }))}
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-foreground">Clauses</label>
+              <div className="space-y-3">
+                {agreementTemplate.clauses.map((clause, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <span className="mt-2 text-sm text-foreground/50">{i + 1}.</span>
+                    <ClauseEditor value={clause} onChange={(html) => updateClause(i, html)} />
+                    <button
+                      onClick={() => removeClause(i)}
+                      aria-label="Remove clause"
+                      className="mt-8 flex size-8 shrink-0 items-center justify-center rounded-lg text-foreground/50 hover:bg-red-500/10 hover:text-red-500"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={addClause}
+                className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-navy hover:underline dark:text-white"
+              >
+                <Plus className="size-4" /> Add Clause
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-foreground">Authorized Signatory Name</label>
+                <input
+                  value={agreementTemplate.authorizedSignatoryName}
+                  onChange={(e) => setAgreementTemplate((t) => ({ ...t, authorizedSignatoryName: e.target.value }))}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-foreground">Designation</label>
+                <input
+                  value={agreementTemplate.authorizedSignatoryDesignation}
+                  onChange={(e) => setAgreementTemplate((t) => ({ ...t, authorizedSignatoryDesignation: e.target.value }))}
+                  className={inputClass}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <Button onClick={saveAgreementTemplate} disabled={savingAgreementTemplate}>
+                {savingAgreementTemplate ? <Loader2 className="size-4 animate-spin" /> : "Save Template"}
+              </Button>
+              {agreementTemplateSaved && <span className="text-sm text-green-600 dark:text-green-400">Saved</span>}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* --- Document Templates --- */}
       <section className="mb-10">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-heading text-lg font-semibold text-foreground">Document Templates</h2>
@@ -443,15 +759,64 @@ export default function DocumentsManager() {
           </div>
         </div>
       </section>
+        </>
+      )}
 
-      {/* --- Per-shipment attachment --- */}
+      {/* --- Per-shipment: agreement status + documents --- */}
+      {activeTab === "shipments" && (
       <section>
         <div className="mb-4">
-          <h2 className="font-heading text-lg font-semibold text-foreground">Shipment Documents</h2>
+          <h2 className="font-heading text-lg font-semibold text-foreground">Shipments</h2>
           <p className="mt-1 text-sm text-foreground/60">
-            One row per shipment (provisioned automatically when its Agreement is generated). Sent on
-            that shipment&apos;s Agreement signing link — see the Agreements page for the link itself.
+            One row per shipment (provisioned automatically when it&apos;s booked). Preview shares the
+            signing link — the same link carries whichever documents are attached below.
           </p>
+        </div>
+
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[220px]">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-foreground/40" />
+            <input
+              value={shipmentQuery}
+              onChange={(e) => setShipmentQuery(e.target.value)}
+              placeholder="Search by tracking number, route, or customer…"
+              className="w-full rounded-xl border border-border-subtle bg-background py-2.5 pl-9 pr-4 text-sm outline-none focus:border-navy"
+            />
+          </div>
+          <select
+            value={agreementFilter}
+            onChange={(e) => setAgreementFilter(e.target.value as typeof agreementFilter)}
+            className="rounded-xl border border-border-subtle bg-background px-3 py-2.5 text-sm outline-none focus:border-navy"
+          >
+            <option value="all">All agreement statuses</option>
+            <option value="pending">Agreement: Pending</option>
+            <option value="signed">Agreement: Signed</option>
+            <option value="expired">Agreement: Expired</option>
+            <option value="none">Agreement: None</option>
+          </select>
+          <select
+            value={documentsFilter}
+            onChange={(e) => setDocumentsFilter(e.target.value as typeof documentsFilter)}
+            className="rounded-xl border border-border-subtle bg-background px-3 py-2.5 text-sm outline-none focus:border-navy"
+          >
+            <option value="all">All document statuses</option>
+            <option value="complete">Documents: All uploaded</option>
+            <option value="pending">Documents: Pending</option>
+            <option value="none">Documents: None attached</option>
+          </select>
+          {(shipmentQuery || agreementFilter !== "all" || documentsFilter !== "all") && (
+            <button
+              type="button"
+              onClick={() => {
+                setShipmentQuery("");
+                setAgreementFilter("all");
+                setDocumentsFilter("all");
+              }}
+              className="text-sm font-medium text-navy hover:underline dark:text-white"
+            >
+              Clear
+            </button>
+          )}
         </div>
 
         <div className="overflow-hidden rounded-2xl border border-border-subtle bg-background">
@@ -461,6 +826,7 @@ export default function DocumentsManager() {
                 <tr>
                   <th className="px-5 py-3 font-medium text-foreground/60">Shipment</th>
                   <th className="px-5 py-3 font-medium text-foreground/60">Customer</th>
+                  <th className="px-5 py-3 font-medium text-foreground/60">Agreement</th>
                   <th className="px-5 py-3 font-medium text-foreground/60">Documents</th>
                   <th className="px-5 py-3 text-right font-medium text-foreground/60">Actions</th>
                 </tr>
@@ -468,31 +834,48 @@ export default function DocumentsManager() {
               <tbody className="divide-y divide-border-subtle">
                 {loading ? (
                   <tr>
-                    <td colSpan={4} className="px-5 py-10 text-center text-foreground/50">
+                    <td colSpan={5} className="px-5 py-10 text-center text-foreground/50">
                       <Loader2 className="mx-auto size-5 animate-spin" />
                     </td>
                   </tr>
-                ) : requests.length === 0 ? (
+                ) : combinedRows.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-5 py-10 text-center text-foreground/50">
-                      No shipments yet — a row appears here once a shipment&apos;s Agreement is generated.
+                    <td colSpan={5} className="px-5 py-10 text-center text-foreground/50">
+                      No shipments yet — a row appears here once a shipment is booked.
+                    </td>
+                  </tr>
+                ) : filteredRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-10 text-center text-foreground/50">
+                      No shipments match your search/filters.
                     </td>
                   </tr>
                 ) : (
-                  requests.map((row) => {
-                    const excluded = new Set(row.excludedTemplates.map(String));
-                    const attached = row.items.filter((i) => i.template && !excluded.has(i.template._id));
+                  filteredRows.map((row) => {
+                    const attached = getAttachedItems(row);
+                    const hasUploaded = attached.some((i) => i.status === "uploaded");
                     return (
-                      <tr key={row._id}>
-                        <td className="px-5 py-3 font-medium text-foreground">{row.shipment?.trackingNumber ?? "—"}</td>
+                      <tr key={row.key}>
+                        <td className="px-5 py-3 font-medium text-foreground">{row.shipment.trackingNumber}</td>
                         <td className="px-5 py-3 text-foreground/80">{row.customer?.name ?? "—"}</td>
+                        <td className="px-5 py-3">
+                          {row.agreement ? (
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${agreementStatusColor[row.agreement.status]}`}
+                            >
+                              {row.agreement.status}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-foreground/40">—</span>
+                          )}
+                        </td>
                         <td className="px-5 py-3">
                           <div className="flex flex-wrap gap-1.5">
                             {attached.length === 0 ? (
                               <span className="text-xs text-foreground/50">None attached</span>
                             ) : (
                               attached.map((item, i) => {
-                                const uploaded = item.status === "uploaded" && item.template && row.shipment;
+                                const uploaded = item.status === "uploaded" && item.template;
                                 return (
                                   <span
                                     key={i}
@@ -517,14 +900,14 @@ export default function DocumentsManager() {
                                       <>
                                         <button
                                           type="button"
-                                          onClick={() => openView(row.shipment!._id, item.template!._id, item.template!.title)}
+                                          onClick={() => openView(row.shipmentId, item.template!._id, item.template!.title)}
                                           aria-label={`View ${item.template!.title}`}
                                           className="ml-0.5 hover:opacity-70"
                                         >
                                           <Eye className="size-3" />
                                         </button>
                                         <a
-                                          href={`/api/admin/document-requests/${row.shipment!._id}/items/${item.template!._id}/file`}
+                                          href={`/api/admin/document-requests/${row.shipmentId}/items/${item.template!._id}/file`}
                                           aria-label={`Download uploaded ${item.template!.title}`}
                                           className="hover:opacity-70"
                                         >
@@ -532,13 +915,13 @@ export default function DocumentsManager() {
                                         </a>
                                         <button
                                           type="button"
-                                          onClick={() => handleResetItem(row.shipment!._id, item.template!._id, item.template!.title)}
-                                          disabled={resettingId === `${row.shipment!._id}:${item.template!._id}`}
+                                          onClick={() => handleResetItem(row.shipmentId, item.template!._id, item.template!.title)}
+                                          disabled={resettingId === `${row.shipmentId}:${item.template!._id}`}
                                           aria-label={`Clear ${item.template!.title}`}
                                           title="Clear this submission (back to Pending)"
                                           className="hover:opacity-70 disabled:opacity-40"
                                         >
-                                          {resettingId === `${row.shipment!._id}:${item.template!._id}` ? (
+                                          {resettingId === `${row.shipmentId}:${item.template!._id}` ? (
                                             <Loader2 className="size-3 animate-spin" />
                                           ) : (
                                             <RotateCcw className="size-3" />
@@ -554,32 +937,52 @@ export default function DocumentsManager() {
                         </td>
                         <td className="px-5 py-3">
                           <div className="flex justify-end gap-2">
-                            {row.shipment && (() => {
-                              const hasUploaded = attached.some((i) => i.status === "uploaded");
-                              return (
-                                <button
-                                  onClick={() => hasUploaded && handleResetAll(row.shipment!._id, row.shipment!.trackingNumber)}
-                                  disabled={!hasUploaded || resettingId === row.shipment._id}
-                                  aria-label="Clear all submissions"
-                                  title={hasUploaded ? "Clear all submissions for this shipment (back to Pending) — handy after test-filling them" : "Nothing submitted yet for this shipment"}
-                                  className="flex size-8 items-center justify-center rounded-lg text-foreground/50 hover:bg-red-500/10 hover:text-red-500 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-foreground/50"
-                                >
-                                  {resettingId === row.shipment._id ? (
-                                    <Loader2 className="size-4 animate-spin" />
-                                  ) : (
-                                    <RotateCcw className="size-4" />
-                                  )}
-                                </button>
-                              );
-                            })()}
                             <button
-                              onClick={() => openEditRequest(row)}
-                              aria-label="Choose documents"
-                              title="Choose which documents apply"
+                              onClick={() => setPreviewShipmentId(row.shipmentId)}
+                              aria-label="Preview Agreement"
+                              title="Preview Agreement (copy link, download PDF)"
                               className="flex size-8 items-center justify-center rounded-lg text-foreground/50 hover:bg-navy/10 hover:text-navy"
                             >
-                              <Pencil className="size-4" />
+                              <Eye className="size-4" />
                             </button>
+                            <button
+                              onClick={() => hasUploaded && handleResetAll(row.shipmentId, row.shipment.trackingNumber)}
+                              disabled={!hasUploaded || resettingId === row.shipmentId}
+                              aria-label="Clear all submissions"
+                              title={hasUploaded ? "Clear all submissions for this shipment (back to Pending)" : "Nothing submitted yet for this shipment"}
+                              className="flex size-8 items-center justify-center rounded-lg text-foreground/50 hover:bg-red-500/10 hover:text-red-500 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-foreground/50"
+                            >
+                              {resettingId === row.shipmentId ? (
+                                <Loader2 className="size-4 animate-spin" />
+                              ) : (
+                                <RotateCcw className="size-4" />
+                              )}
+                            </button>
+                            {row.request && (
+                              <button
+                                onClick={() => openEditRequest(row.request as RequestRow)}
+                                aria-label="Choose documents"
+                                title="Choose which documents apply"
+                                className="flex size-8 items-center justify-center rounded-lg text-foreground/50 hover:bg-navy/10 hover:text-navy"
+                              >
+                                <Pencil className="size-4" />
+                              </button>
+                            )}
+                            {row.agreement && (
+                              <button
+                                onClick={() => handleDeleteAgreement(row.agreement as AgreementRow)}
+                                disabled={deletingAgreementId === row.agreement._id}
+                                aria-label="Delete Agreement"
+                                title="Delete Agreement"
+                                className="flex size-8 items-center justify-center rounded-lg text-foreground/50 hover:bg-red-500/10 hover:text-red-500 disabled:opacity-60"
+                              >
+                                {deletingAgreementId === row.agreement._id ? (
+                                  <Loader2 className="size-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="size-4" />
+                                )}
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -591,6 +994,7 @@ export default function DocumentsManager() {
           </div>
         </div>
       </section>
+      )}
 
       {/* --- Upload Template modal --- */}
       {templateModalOpen && (
@@ -824,6 +1228,23 @@ export default function DocumentsManager() {
             ) : null}
           </div>
         </div>
+      )}
+
+      {previewShipmentId && (
+        <AgreementPreviewModal
+          shipmentId={previewShipmentId}
+          documents={(() => {
+            const row = combinedRows.find((r) => r.shipmentId === previewShipmentId);
+            return row
+              ? getAttachedItems(row).map((i) => ({
+                  title: i.template?.title ?? "Unknown",
+                  status: i.status,
+                  uploadedAt: i.upload?.uploadedAt ?? null,
+                }))
+              : [];
+          })()}
+          onClose={() => setPreviewShipmentId(null)}
+        />
       )}
     </div>
   );

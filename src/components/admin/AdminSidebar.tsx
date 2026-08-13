@@ -22,9 +22,8 @@ import {
   Contact2,
   Ship,
   Receipt,
-  FileSignature,
   FileText,
-  BadgeCheck,
+  // BadgeCheck, // only used by the commented-out Credit Approvals nav item below
   FolderOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -51,9 +50,11 @@ const navGroups: { section: string | null; items: { label: string; href: string;
   {
     section: "Customer Documents",
     items: [
-      { label: "Agreements", href: "/admin/agreements", icon: FileSignature },
-      { label: "Credit Approvals", href: "/admin/credit-approvals", icon: BadgeCheck },
-      { label: "Documents", href: "/admin/documents", icon: FolderOpen },
+      { label: "Agreements & Documents", href: "/admin/documents", icon: FolderOpen },
+      // Hidden from nav — superseded by the generic "Credit Approval Form" template inside
+      // Agreements & Documents (customer self-fills online, admin views/downloads the PDF).
+      // Route (/admin/credit-approvals) and its data are untouched, just not linked here.
+      // { label: "Credit Approvals", href: "/admin/credit-approvals", icon: BadgeCheck },
     ],
   },
   {

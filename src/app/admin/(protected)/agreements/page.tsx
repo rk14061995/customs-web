@@ -1,7 +1,7 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import AgreementsManager from "@/components/admin/AgreementsManager";
-
+// Agreements got folded into the combined Agreements & Documents page — keep this route around
+// (rather than 404ing) for anyone with the old URL bookmarked.
 export default function AdminAgreementsPage() {
-  return <AgreementsManager />;
+  redirect("/admin/documents");
 }

@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, X, FileDown, Link as LinkIcon } from "lucide-react";
+import { Loader2, X, FileDown, Link as LinkIcon, CheckCircle2, Clock } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { formatDateTime } from "@/lib/utils";
 import ClauseHtml from "@/components/agreements/ClauseHtml";
+
+type DocumentStatusItem = { title: string; status: "pending" | "uploaded"; uploadedAt?: string | null };
 
 type AgreementDetail = {
   status: "pending" | "signed" | "expired";
@@ -24,9 +26,11 @@ type AgreementDetail = {
 
 export default function AgreementPreviewModal({
   shipmentId,
+  documents,
   onClose,
 }: {
   shipmentId: string;
+  documents?: DocumentStatusItem[];
   onClose: () => void;
 }) {
   const [agreement, setAgreement] = useState<AgreementDetail | null>(null);
@@ -132,6 +136,42 @@ export default function AgreementPreviewModal({
                   <p>Not yet signed by the customer.</p>
                 )}
               </div>
+
+              {documents && documents.length > 0 && (
+                <div className="mt-4 border-t border-border-subtle pt-4">
+                  <p className="mb-2 text-sm font-semibold text-foreground">Customer Documents</p>
+                  <ul className="space-y-1.5">
+                    {documents.map((doc, i) => (
+                      <li
+                        key={i}
+                        className="flex items-center justify-between gap-3 text-sm text-foreground/70"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          {doc.status === "uploaded" ? (
+                            <CheckCircle2 className="size-3.5 text-green-600 dark:text-green-400" />
+                          ) : (
+                            <Clock className="size-3.5 text-yellow-600 dark:text-yellow-400" />
+                          )}
+                          {doc.title}
+                        </span>
+                        <span
+                          className={`text-xs font-medium ${
+                            doc.status === "uploaded"
+                              ? "text-green-600 dark:text-green-400"
+                              : "text-yellow-600 dark:text-yellow-400"
+                          }`}
+                        >
+                          {doc.status === "uploaded"
+                            ? doc.uploadedAt
+                              ? `Uploaded ${formatDateTime(doc.uploadedAt)}`
+                              : "Uploaded"
+                            : "Pending"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           )}
         </div>
