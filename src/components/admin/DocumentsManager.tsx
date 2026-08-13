@@ -1,12 +1,116 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Trash2, X, Loader2, Download, Pencil, CheckCircle2, Clock } from "lucide-react";
+import { Plus, Trash2, X, Loader2, Download, Pencil, CheckCircle2, Clock, ListChecks } from "lucide-react";
 import Button from "@/components/ui/Button";
 import { formatDate, formatDateTime } from "@/lib/utils";
 
 const inputClass =
   "w-full rounded-xl border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none focus:border-navy";
+
+const FIELD_TYPES = [
+  { value: "text", label: "Short text" },
+  { value: "textarea", label: "Long text" },
+  { value: "date", label: "Date" },
+  { value: "select", label: "Dropdown" },
+] as const;
+
+type TemplateField = {
+  key: string;
+  label: string;
+  type: (typeof FIELD_TYPES)[number]["value"];
+  required: boolean;
+  options?: string[];
+};
+
+/** A field row mid-edit in the builder UI — `optionsText` is the raw comma-separated input, split into `options` on save. */
+type FieldDraft = { label: string; type: TemplateField["type"]; required: boolean; optionsText: string };
+
+function fieldToDraft(field: TemplateField): FieldDraft {
+  return { label: field.label, type: field.type, required: field.required, optionsText: (field.options ?? []).join(", ") };
+}
+
+/** Derives a unique snake_case key per field from its label, so admins never have to think about keys. */
+function draftsToFields(drafts: FieldDraft[]): TemplateField[] {
+  const usedKeys = new Set<string>();
+  return drafts
+    .filter((d) => d.label.trim())
+    .map((d, i) => {
+      const base = d.label.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || `field_${i + 1}`;
+      let key = base;
+      let n = 2;
+      while (usedKeys.has(key)) key = `${base}_${n++}`;
+      usedKeys.add(key);
+      const field: TemplateField = { key, label: d.label.trim(), type: d.type, required: d.required };
+      if (d.type === "select") {
+        field.options = d.optionsText.split(",").map((o) => o.trim()).filter(Boolean);
+      }
+      return field;
+    });
+}
+
+/** Add/remove/edit rows for a document's fillable-online fields — shared by the upload modal and the edit-fields modal. */
+function FieldBuilder({ drafts, onChange }: { drafts: FieldDraft[]; onChange: (drafts: FieldDraft[]) => void }) {
+  const update = (i: number, patch: Partial<FieldDraft>) =>
+    onChange(drafts.map((d, idx) => (idx === i ? { ...d, ...patch } : d)));
+  const remove = (i: number) => onChange(drafts.filter((_, idx) => idx !== i));
+  const add = () => onChange([...drafts, { label: "", type: "text", required: false, optionsText: "" }]);
+
+  return (
+    <div className="space-y-2">
+      {drafts.map((d, i) => (
+        <div key={i} className="space-y-1.5 rounded-xl border border-border-subtle p-2">
+          <div className="flex items-center gap-2">
+            <input
+              value={d.label}
+              onChange={(e) => update(i, { label: e.target.value })}
+              placeholder="Field label, e.g. GST No."
+              className="flex-1 rounded-lg border border-border-subtle bg-background px-3 py-1.5 text-sm outline-none focus:border-navy"
+            />
+            <select
+              value={d.type}
+              onChange={(e) => update(i, { type: e.target.value as FieldDraft["type"] })}
+              className="rounded-lg border border-border-subtle bg-background px-2 py-1.5 text-sm outline-none focus:border-navy"
+            >
+              {FIELD_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => remove(i)}
+              aria-label="Remove field"
+              className="flex size-8 shrink-0 items-center justify-center rounded-lg text-foreground/50 hover:bg-red-500/10 hover:text-red-500"
+            >
+              <Trash2 className="size-4" />
+            </button>
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1.5 text-xs text-foreground/70">
+              <input type="checkbox" checked={d.required} onChange={(e) => update(i, { required: e.target.checked })} />
+              Required
+            </label>
+            {d.type === "select" && (
+              <input
+                value={d.optionsText}
+                onChange={(e) => update(i, { optionsText: e.target.value })}
+                placeholder="Options, comma separated"
+                className="flex-1 rounded-lg border border-border-subtle bg-background px-3 py-1.5 text-xs outline-none focus:border-navy"
+              />
+            )}
+          </div>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={add}
+        className="inline-flex items-center gap-1.5 text-sm font-medium text-navy hover:underline dark:text-white"
+      >
+        <Plus className="size-4" /> Add field
+      </button>
+    </div>
+  );
+}
 
 type TemplateRow = {
   _id: string;
@@ -14,6 +118,7 @@ type TemplateRow = {
   category: string;
   fileName: string;
   fileSize: number;
+  fields: TemplateField[];
   createdAt: string;
 };
 
@@ -45,9 +150,15 @@ export default function DocumentsManager() {
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
   const [templateForm, setTemplateForm] = useState({ title: "", category: "" });
   const [templateFile, setTemplateFile] = useState<File | null>(null);
+  const [templateFieldDrafts, setTemplateFieldDrafts] = useState<FieldDraft[]>([]);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [templateError, setTemplateError] = useState("");
   const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
+
+  const [fieldsModalTemplate, setFieldsModalTemplate] = useState<TemplateRow | null>(null);
+  const [fieldsDraft, setFieldsDraft] = useState<FieldDraft[]>([]);
+  const [savingFields, setSavingFields] = useState(false);
+  const [fieldsError, setFieldsError] = useState("");
 
   const [editingRequest, setEditingRequest] = useState<RequestRow | null>(null);
   const [includedTemplateIds, setIncludedTemplateIds] = useState<string[]>([]);
@@ -74,6 +185,7 @@ export default function DocumentsManager() {
   const openTemplateModal = () => {
     setTemplateForm({ title: "", category: "" });
     setTemplateFile(null);
+    setTemplateFieldDrafts([]);
     setTemplateError("");
     setTemplateModalOpen(true);
   };
@@ -90,6 +202,7 @@ export default function DocumentsManager() {
       body.set("title", templateForm.title);
       body.set("category", templateForm.category);
       body.set("file", templateFile);
+      body.set("fields", JSON.stringify(draftsToFields(templateFieldDrafts)));
       const res = await fetch("/api/admin/document-templates", { method: "POST", body });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -111,6 +224,36 @@ export default function DocumentsManager() {
       await load();
     } finally {
       setDeletingTemplateId(null);
+    }
+  };
+
+  // --- Fillable-online fields ---
+
+  const openEditFields = (row: TemplateRow) => {
+    setFieldsModalTemplate(row);
+    setFieldsDraft(row.fields.map(fieldToDraft));
+    setFieldsError("");
+  };
+
+  const handleSaveFields = async () => {
+    if (!fieldsModalTemplate) return;
+    setSavingFields(true);
+    setFieldsError("");
+    try {
+      const res = await fetch(`/api/admin/document-templates/${fieldsModalTemplate._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: draftsToFields(fieldsDraft) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setFieldsError(data.error ?? "Failed to save fields");
+        return;
+      }
+      setFieldsModalTemplate(null);
+      await load();
+    } finally {
+      setSavingFields(false);
     }
   };
 
@@ -203,6 +346,14 @@ export default function DocumentsManager() {
                       <td className="px-5 py-3 text-foreground/60">{formatDate(row.createdAt)}</td>
                       <td className="px-5 py-3">
                         <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => openEditFields(row)}
+                            aria-label="Fillable-online fields"
+                            title={row.fields.length ? `Fillable online — ${row.fields.length} field(s)` : "Make fillable online"}
+                            className={`flex size-8 items-center justify-center rounded-lg hover:bg-navy/10 hover:text-navy ${row.fields.length ? "text-navy" : "text-foreground/50"}`}
+                          >
+                            <ListChecks className="size-4" />
+                          </button>
                           <a
                             href={`/api/admin/document-templates/${row._id}/file`}
                             aria-label="Download"
@@ -384,6 +535,16 @@ export default function DocumentsManager() {
                   Any file type, up to 10MB (DOC, DOCX, PDF, etc). Attached to every shipment by default.
                 </p>
               </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-foreground">
+                  Fill online (optional)
+                </label>
+                <p className="mb-2 text-xs text-foreground/50">
+                  Add fields to let customers fill this form in the browser instead of printing and
+                  scanning it. Downloading/uploading a copy always stays available too.
+                </p>
+                <FieldBuilder drafts={templateFieldDrafts} onChange={setTemplateFieldDrafts} />
+              </div>
             </div>
 
             {templateError && <p className="mt-4 text-sm text-red-500">{templateError}</p>}
@@ -392,6 +553,37 @@ export default function DocumentsManager() {
               <Button variant="ghost" onClick={() => setTemplateModalOpen(false)}>Cancel</Button>
               <Button onClick={handleUploadTemplate} disabled={savingTemplate || !templateForm.title || !templateForm.category}>
                 {savingTemplate ? <Loader2 className="size-4 animate-spin" /> : "Upload"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- Fillable-online fields for a template --- */}
+      {fieldsModalTemplate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-background p-6 shadow-2xl">
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="font-heading text-lg font-semibold text-foreground">
+                Online form fields — {fieldsModalTemplate.title}
+              </h2>
+              <button onClick={() => setFieldsModalTemplate(null)} aria-label="Close" className="text-foreground/50 hover:text-foreground">
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <p className="mb-3 text-sm text-foreground/60">
+              Leave empty to keep this document as download/upload only. Customers always see the
+              upload option too, regardless.
+            </p>
+            <FieldBuilder drafts={fieldsDraft} onChange={setFieldsDraft} />
+
+            {fieldsError && <p className="mt-4 text-sm text-red-500">{fieldsError}</p>}
+
+            <div className="mt-6 flex justify-end gap-3">
+              <Button variant="ghost" onClick={() => setFieldsModalTemplate(null)}>Cancel</Button>
+              <Button onClick={handleSaveFields} disabled={savingFields}>
+                {savingFields ? <Loader2 className="size-4 animate-spin" /> : "Save"}
               </Button>
             </div>
           </div>

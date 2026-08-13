@@ -16,7 +16,7 @@ export async function GET(
   const { token } = await params;
 
   const agreement = await Agreement.findOne({ token })
-    .populate("shipment", "trackingNumber origin destination")
+    .populate("shipment", "trackingNumber carrierTrackingNumber origin destination")
     .populate("customer", "name");
 
   if (!agreement) return NextResponse.json({ error: "Agreement not found" }, { status: 404 });
@@ -32,7 +32,7 @@ export async function GET(
   const attachedItems = docRequest ? getAttachedItems(docRequest) : [];
 
   const templates = await DocumentTemplate.find({ _id: { $in: attachedItems.map((i) => i.template) } }).select(
-    "title category fileName"
+    "title category fileName fields"
   );
   const templateById = new Map(templates.map((t) => [String(t._id), t]));
 
@@ -47,7 +47,13 @@ export async function GET(
       const template = templateById.get(String(item.template));
       if (!template) return null;
       return {
-        template: { _id: template._id, title: template.title, category: template.category, fileName: template.fileName },
+        template: {
+          _id: template._id,
+          title: template.title,
+          category: template.category,
+          fileName: template.fileName,
+          fields: template.fields,
+        },
         status: item.status,
         upload: item.upload ? uploadById.get(String(item.upload)) ?? null : null,
       };

@@ -1,4 +1,34 @@
 import { NextResponse } from "next/server";
+import { DOCUMENT_FIELD_TYPES, type IDocumentTemplateField } from "@/models/DocumentTemplate";
+
+export class DocumentFieldsError extends Error {}
+
+/**
+ * Validates and normalizes a template's field-builder input (from the admin "Upload Template"
+ * modal or the fields-edit PATCH) into DocumentTemplate's field shape. Throws DocumentFieldsError
+ * with a user-facing message on anything malformed. Returns [] for absent/empty input.
+ */
+export function parseTemplateFields(raw: unknown): IDocumentTemplateField[] {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) throw new DocumentFieldsError("fields must be an array");
+
+  return raw.map((entry) => {
+    const key = String((entry as { key?: unknown })?.key ?? "").trim();
+    const label = String((entry as { label?: unknown })?.label ?? "").trim();
+    const rawType = (entry as { type?: unknown })?.type;
+    const type = (DOCUMENT_FIELD_TYPES as readonly string[]).includes(String(rawType))
+      ? (rawType as IDocumentTemplateField["type"])
+      : "text";
+    if (!key || !label) throw new DocumentFieldsError("Every field needs a key and a label.");
+
+    const field: IDocumentTemplateField = { key, label, type, required: Boolean((entry as { required?: unknown })?.required) };
+    if (type === "select") {
+      const rawOptions = (entry as { options?: unknown })?.options;
+      field.options = Array.isArray(rawOptions) ? rawOptions.map((o) => String(o).trim()).filter(Boolean) : [];
+    }
+    return field;
+  });
+}
 
 /** Streams a stored file back as a download — shared by every template/upload "file" route. */
 export function fileResponse(fileData: Buffer, mimeType: string, fileName: string) {
