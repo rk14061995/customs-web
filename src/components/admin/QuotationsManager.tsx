@@ -65,6 +65,10 @@ const defaultCharges: Charge[] = [
   { label: "Other Surcharge", basis: "flat", rate: 0 },
 ];
 
+type Box = { length: string; width: string; height: string; weightKg: number };
+
+const emptyBox: Box = { length: "", width: "", height: "", weightKg: 0 };
+
 const emptyForm = {
   customer: "",
   origin: "",
@@ -72,7 +76,7 @@ const emptyForm = {
   serviceType: SERVICE_TYPES[0],
   weightMode: "perBox" as "perBox" | "total",
   weightPerBoxKg: 0,
-  totalWeightKg: 0,
+  boxes: [{ ...emptyBox }] as Box[],
   quantity: 1,
   dimensions: "",
   charges: defaultCharges,
@@ -126,10 +130,17 @@ export default function QuotationsManager() {
     [customers]
   );
 
+  const boxesWeightKg = formValues.boxes.reduce((sum, b) => sum + (Number(b.weightKg) || 0), 0);
+
   const effectiveWeightKg =
-    formValues.weightMode === "total"
-      ? formValues.totalWeightKg
-      : formValues.weightPerBoxKg * formValues.quantity;
+    formValues.weightMode === "total" ? boxesWeightKg : formValues.weightPerBoxKg * formValues.quantity;
+
+  /** Renders each box's dimensions/weight into the free-text `dimensions` field so it still shows up
+   * on the print page, PDF, email, and WhatsApp message without needing a schema change. */
+  const boxesDimensionsText = formValues.boxes
+    .filter((b) => b.length || b.width || b.height || b.weightKg)
+    .map((b) => `${b.length || "?"}×${b.width || "?"}×${b.height || "?"} cm (${b.weightKg || 0} kg)`)
+    .join(", ");
 
   const formTotals = useMemo(
     () => computeQuotationTotals(formValues.charges, effectiveWeightKg, formValues.taxRate),
@@ -152,7 +163,7 @@ export default function QuotationsManager() {
       serviceType: row.serviceType,
       weightMode: "perBox",
       weightPerBoxKg: (row.quantity ?? 1) ? row.weightKg / (row.quantity ?? 1) : row.weightKg,
-      totalWeightKg: row.weightKg,
+      boxes: [{ ...emptyBox }],
       quantity: row.quantity ?? 1,
       dimensions: row.dimensions ?? "",
       charges: row.charges.length ? row.charges : defaultCharges,
@@ -185,15 +196,39 @@ export default function QuotationsManager() {
     setFormValues((v) => ({ ...v, charges: v.charges.filter((_, i) => i !== index) }));
   };
 
+  const updateBox = (index: number, field: keyof Box, value: string) => {
+    setFormValues((v) => ({
+      ...v,
+      boxes: v.boxes.map((b, i) => (i === index ? { ...b, [field]: field === "weightKg" ? Number(value) : value } : b)),
+    }));
+  };
+
+  const addBox = () => {
+    setFormValues((v) => ({ ...v, boxes: [...v.boxes, { ...emptyBox }] }));
+  };
+
+  const removeBox = (index: number) => {
+    setFormValues((v) => ({ ...v, boxes: v.boxes.length > 1 ? v.boxes.filter((_, i) => i !== index) : v.boxes }));
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setError("");
     try {
-      const { weightMode, weightPerBoxKg, totalWeightKg, ...rest } = formValues;
       const payload: Record<string, unknown> = {
-        ...rest,
+        customer: formValues.customer,
+        origin: formValues.origin,
+        destination: formValues.destination,
+        serviceType: formValues.serviceType,
+        dimensions: formValues.weightMode === "total" ? boxesDimensionsText : formValues.dimensions,
+        quantity: formValues.weightMode === "total" ? formValues.boxes.length : formValues.quantity,
         weightKg: effectiveWeightKg,
         charges: formValues.charges.filter((c) => c.label.trim() !== ""),
+        currency: formValues.currency,
+        taxRate: formValues.taxRate,
+        status: formValues.status,
+        validUntil: formValues.validUntil,
+        notes: formValues.notes,
       };
       if (!editing) delete payload.status;
 
@@ -222,28 +257,46 @@ export default function QuotationsManager() {
     await load();
   };
 
-  /** Opens WhatsApp with the quotation summary pre-filled to the customer's mobile — same text as the print page's WhatsApp button, just reachable straight from the list. */
-  const handleSendWhatsApp = (row: Quotation) => {
+  const [sendingWhatsAppId, setSendingWhatsAppId] = useState<string | null>(null);
+
+  /** Opens WhatsApp with the quotation summary and a link to its PDF pre-filled to the customer's
+   * mobile — same text as the print page's WhatsApp button, just reachable straight from the list. */
+  const handleSendWhatsApp = async (row: Quotation) => {
     const digits = String(row.customer?.phone ?? "").replace(/[^0-9]/g, "");
     if (!digits) {
       alert("This customer has no phone number on file.");
       return;
     }
-    const { baseAmount } = computeQuotationTotals(row.charges, row.weightKg, row.taxRate);
-    const lines = row.charges.map(
-      (c) => `${c.label}: ${row.currency} ${computeChargeAmount(c, row.weightKg, baseAmount).toLocaleString()}`
-    );
-    const text = [
-      `Quotation ${row.quoteNumber} — Rana Forwarder`,
-      `${row.origin} → ${row.destination} (${row.serviceType}, ${row.weightKg}kg)`,
-      "",
-      ...lines,
-      "",
-      `Subtotal: ${row.currency} ${row.subtotal.toLocaleString()}`,
-      `GST (${row.taxRate}%): ${row.currency} ${row.taxAmount.toLocaleString()}`,
-      `Total: ${row.currency} ${row.total.toLocaleString()}`,
-    ].join("\n");
-    window.open(`https://wa.me/${digits}?text=${encodeURIComponent(text)}`, "_blank");
+    setSendingWhatsAppId(row._id);
+    try {
+      const res = await fetch(`/api/admin/quotations/${row._id}/share-link`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.error ?? "Failed to create the PDF share link");
+        return;
+      }
+      const pdfUrl = `${window.location.origin}/api/quotations/${data.token}/pdf`;
+
+      const { baseAmount } = computeQuotationTotals(row.charges, row.weightKg, row.taxRate);
+      const lines = row.charges.map(
+        (c) => `${c.label}: ${row.currency} ${computeChargeAmount(c, row.weightKg, baseAmount).toLocaleString()}`
+      );
+      const text = [
+        `Quotation ${row.quoteNumber} — Rana Forwarder`,
+        `${row.origin} → ${row.destination} (${row.serviceType}, ${row.weightKg}kg)`,
+        "",
+        ...lines,
+        "",
+        `Subtotal: ${row.currency} ${row.subtotal.toLocaleString()}`,
+        `GST (${row.taxRate}%): ${row.currency} ${row.taxAmount.toLocaleString()}`,
+        `Total: ${row.currency} ${row.total.toLocaleString()}`,
+        "",
+        `PDF: ${pdfUrl}`,
+      ].join("\n");
+      window.open(`https://wa.me/${digits}?text=${encodeURIComponent(text)}`, "_blank");
+    } finally {
+      setSendingWhatsAppId(null);
+    }
   };
 
   return (
@@ -347,11 +400,16 @@ export default function QuotationsManager() {
                         </button>
                         <button
                           onClick={() => handleSendWhatsApp(row)}
+                          disabled={sendingWhatsAppId === row._id}
                           aria-label="Send via WhatsApp"
                           title="Send via WhatsApp"
-                          className="flex size-8 items-center justify-center rounded-lg text-foreground/50 hover:bg-green-500/10 hover:text-green-600 dark:hover:text-green-400"
+                          className="flex size-8 items-center justify-center rounded-lg text-foreground/50 hover:bg-green-500/10 hover:text-green-600 disabled:opacity-40 dark:hover:text-green-400"
                         >
-                          <MessageCircle className="size-4" />
+                          {sendingWhatsAppId === row._id ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <MessageCircle className="size-4" />
+                          )}
                         </button>
                         <button
                           onClick={() => openEdit(row)}
@@ -443,11 +501,11 @@ export default function QuotationsManager() {
                 />
               </div>
 
-              <div>
+              <div className={formValues.weightMode === "total" ? "sm:col-span-2" : undefined}>
                 <div className="mb-1.5 flex items-center justify-between">
                   <label className="block text-sm font-medium text-foreground">
-                    {formValues.weightMode === "total" ? "Total Weight (kg)" : "Weight per Box (kg)"}{" "}
-                    <span className="text-orange">*</span>
+                    {formValues.weightMode === "total" ? "Boxes" : "Weight per Box (kg)"}{" "}
+                    {formValues.weightMode === "perBox" && <span className="text-orange">*</span>}
                   </label>
                   <label className="flex items-center gap-1.5 text-xs font-medium text-foreground/70">
                     <input
@@ -464,56 +522,108 @@ export default function QuotationsManager() {
                     Boxes have different weights
                   </label>
                 </div>
+
                 {formValues.weightMode === "total" ? (
-                  <input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={formValues.totalWeightKg}
-                    onChange={(e) => setFormValues((v) => ({ ...v, totalWeightKg: Number(e.target.value) }))}
-                    className="w-full rounded-xl border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none focus:border-navy"
-                  />
+                  <div className="space-y-2">
+                    {formValues.boxes.map((box, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <input
+                          value={box.length}
+                          onChange={(e) => updateBox(i, "length", e.target.value)}
+                          placeholder="L"
+                          className="w-16 min-w-0 rounded-xl border border-border-subtle bg-background px-2 py-2.5 text-center text-sm outline-none focus:border-navy"
+                        />
+                        <span className="text-foreground/40">×</span>
+                        <input
+                          value={box.width}
+                          onChange={(e) => updateBox(i, "width", e.target.value)}
+                          placeholder="W"
+                          className="w-16 min-w-0 rounded-xl border border-border-subtle bg-background px-2 py-2.5 text-center text-sm outline-none focus:border-navy"
+                        />
+                        <span className="text-foreground/40">×</span>
+                        <input
+                          value={box.height}
+                          onChange={(e) => updateBox(i, "height", e.target.value)}
+                          placeholder="H"
+                          className="w-16 min-w-0 rounded-xl border border-border-subtle bg-background px-2 py-2.5 text-center text-sm outline-none focus:border-navy"
+                        />
+                        <span className="shrink-0 text-xs text-foreground/50">cm</span>
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={box.weightKg}
+                          onChange={(e) => updateBox(i, "weightKg", e.target.value)}
+                          placeholder="Weight"
+                          className="w-24 min-w-0 flex-1 rounded-xl border border-border-subtle bg-background px-3 py-2.5 text-sm outline-none focus:border-navy"
+                        />
+                        <span className="shrink-0 text-xs text-foreground/50">kg</span>
+                        <button
+                          type="button"
+                          onClick={() => removeBox(i)}
+                          disabled={formValues.boxes.length === 1}
+                          aria-label="Remove box"
+                          className="flex size-9 shrink-0 items-center justify-center rounded-lg text-foreground/50 hover:bg-red-500/10 hover:text-red-500 disabled:opacity-30 disabled:hover:bg-transparent"
+                        >
+                          <Trash2 className="size-4" />
+                        </button>
+                      </div>
+                    ))}
+                    <Button type="button" variant="ghost" size="sm" icon={Plus} onClick={addBox}>
+                      Add Box
+                    </Button>
+                    <p className="mt-1 text-xs text-foreground/50">
+                      {formValues.boxes.length} box{formValues.boxes.length === 1 ? "" : "es"}, each entered
+                      individually since weights vary. {effectiveWeightKg.toLocaleString()} kg total, used to
+                      compute any charges billed per kg.
+                    </p>
+                  </div>
                 ) : (
+                  <>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={formValues.weightPerBoxKg}
+                      onChange={(e) => setFormValues((v) => ({ ...v, weightPerBoxKg: Number(e.target.value) }))}
+                      className="w-full rounded-xl border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none focus:border-navy"
+                    />
+                    <p className="mt-1 text-xs text-foreground/50">
+                      × {formValues.quantity} box{formValues.quantity === 1 ? "" : "es"} ={" "}
+                      {effectiveWeightKg.toLocaleString()} kg total, used to compute any charges billed per kg.
+                    </p>
+                  </>
+                )}
+              </div>
+
+              {formValues.weightMode === "perBox" && (
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-foreground">
+                    Quantity (Boxes) <span className="text-orange">*</span>
+                  </label>
                   <input
                     type="number"
-                    min={0}
-                    step="0.01"
-                    value={formValues.weightPerBoxKg}
-                    onChange={(e) => setFormValues((v) => ({ ...v, weightPerBoxKg: Number(e.target.value) }))}
+                    min={1}
+                    step="1"
+                    value={formValues.quantity}
+                    onChange={(e) => setFormValues((v) => ({ ...v, quantity: Number(e.target.value) }))}
                     className="w-full rounded-xl border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none focus:border-navy"
                   />
-                )}
-                <p className="mt-1 text-xs text-foreground/50">
-                  {formValues.weightMode === "total"
-                    ? `Entered directly since box weights vary. ${effectiveWeightKg.toLocaleString()} kg total, used to compute any charges billed per kg.`
-                    : `× ${formValues.quantity} box${formValues.quantity === 1 ? "" : "es"} = ${effectiveWeightKg.toLocaleString()} kg total, used to compute any charges billed per kg.`}
-                </p>
-              </div>
+                  <p className="mt-1 text-xs text-foreground/50">Number of boxes/packages being shipped.</p>
+                </div>
+              )}
 
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Quantity (Boxes) <span className="text-orange">*</span>
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  step="1"
-                  value={formValues.quantity}
-                  onChange={(e) => setFormValues((v) => ({ ...v, quantity: Number(e.target.value) }))}
-                  className="w-full rounded-xl border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none focus:border-navy"
-                />
-                <p className="mt-1 text-xs text-foreground/50">Number of boxes/packages being shipped.</p>
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">Dimensions</label>
-                <input
-                  value={formValues.dimensions}
-                  onChange={(e) => setFormValues((v) => ({ ...v, dimensions: e.target.value }))}
-                  placeholder="e.g. 40x30x20 cm"
-                  className="w-full rounded-xl border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none focus:border-navy"
-                />
-              </div>
+              {formValues.weightMode === "perBox" && (
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-foreground">Dimensions</label>
+                  <input
+                    value={formValues.dimensions}
+                    onChange={(e) => setFormValues((v) => ({ ...v, dimensions: e.target.value }))}
+                    placeholder="e.g. 40x30x20 cm"
+                    className="w-full rounded-xl border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none focus:border-navy"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-foreground">Currency</label>

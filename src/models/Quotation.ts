@@ -29,6 +29,8 @@ export interface IQuotation extends Document {
   status: (typeof QUOTATION_STATUSES)[number];
   validUntil?: string;
   notes?: string;
+  /** Opaque token for the public, unauthenticated PDF link (e.g. shared over WhatsApp). Generated lazily on first share. */
+  shareToken?: string;
   createdAt: Date;
 }
 
@@ -60,6 +62,7 @@ const QuotationSchema = new Schema<IQuotation>(
     status: { type: String, enum: QUOTATION_STATUSES, default: "draft" },
     validUntil: { type: String },
     notes: { type: String },
+    shareToken: { type: String, unique: true, sparse: true },
   },
   { timestamps: true }
 );

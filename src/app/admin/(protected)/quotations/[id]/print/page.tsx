@@ -39,6 +39,7 @@ export default function QuotationPrintPage() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
 
   useEffect(() => {
     fetch(`/api/admin/quotations/${id}`)
@@ -101,26 +102,41 @@ export default function QuotationPrintPage() {
     }
   };
 
-  const handleSendWhatsApp = () => {
+  const handleSendWhatsApp = async () => {
     const digits = String(quotation.customer?.phone ?? "").replace(/[^0-9]/g, "");
     if (!digits) {
       alert("This customer has no phone number on file.");
       return;
     }
-    const lines = quotation.charges.map(
-      (c) => `${c.label}: ${quotation.currency} ${computeChargeAmount(c, quotation.weightKg, baseAmount).toLocaleString()}`
-    );
-    const text = [
-      `Quotation ${quotation.quoteNumber} — Rana Forwarder`,
-      `${quotation.origin} → ${quotation.destination} (${quotation.serviceType}, ${quotation.weightKg}kg)`,
-      "",
-      ...lines,
-      "",
-      `Subtotal: ${quotation.currency} ${quotation.subtotal.toLocaleString()}`,
-      `GST (${quotation.taxRate}%): ${quotation.currency} ${quotation.taxAmount.toLocaleString()}`,
-      `Total: ${quotation.currency} ${quotation.total.toLocaleString()}`,
-    ].join("\n");
-    window.open(`https://wa.me/${digits}?text=${encodeURIComponent(text)}`, "_blank");
+    setSendingWhatsApp(true);
+    try {
+      const res = await fetch(`/api/admin/quotations/${quotation._id}/share-link`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.error ?? "Failed to create the PDF share link");
+        return;
+      }
+      const pdfUrl = `${window.location.origin}/api/quotations/${data.token}/pdf`;
+
+      const lines = quotation.charges.map(
+        (c) => `${c.label}: ${quotation.currency} ${computeChargeAmount(c, quotation.weightKg, baseAmount).toLocaleString()}`
+      );
+      const text = [
+        `Quotation ${quotation.quoteNumber} — Rana Forwarder`,
+        `${quotation.origin} → ${quotation.destination} (${quotation.serviceType}, ${quotation.weightKg}kg)`,
+        "",
+        ...lines,
+        "",
+        `Subtotal: ${quotation.currency} ${quotation.subtotal.toLocaleString()}`,
+        `GST (${quotation.taxRate}%): ${quotation.currency} ${quotation.taxAmount.toLocaleString()}`,
+        `Total: ${quotation.currency} ${quotation.total.toLocaleString()}`,
+        "",
+        `PDF: ${pdfUrl}`,
+      ].join("\n");
+      window.open(`https://wa.me/${digits}?text=${encodeURIComponent(text)}`, "_blank");
+    } finally {
+      setSendingWhatsApp(false);
+    }
   };
 
   return (
@@ -128,8 +144,8 @@ export default function QuotationPrintPage() {
       <style>{`@page { size: A4; margin: 1.5cm; }`}</style>
 
       <div className="mb-8 flex justify-end gap-3 print:hidden">
-        <Button variant="secondary" icon={MessageCircle} onClick={handleSendWhatsApp}>
-          WhatsApp
+        <Button variant="secondary" icon={MessageCircle} onClick={handleSendWhatsApp} disabled={sendingWhatsApp}>
+          {sendingWhatsApp ? <Loader2 className="size-4 animate-spin" /> : "WhatsApp"}
         </Button>
         <Button variant="secondary" icon={Mail} onClick={openEmailPreview} disabled={previewLoading}>
           {previewLoading ? <Loader2 className="size-4 animate-spin" /> : "Email"}

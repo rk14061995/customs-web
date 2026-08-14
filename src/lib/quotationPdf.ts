@@ -7,6 +7,31 @@ const BORDER = "#e2e8f0";
 
 export type QuotationPdfCharge = { label: string; basisLabel: string; amount: number };
 
+export type QuotationPdfFields = {
+  quoteNumber: string;
+  createdAt: Date | string;
+  customerName: string;
+  customerCompany?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  origin: string;
+  destination: string;
+  serviceType: string;
+  weightKg: number;
+  quantity: number;
+  dimensions?: string;
+  validUntil?: string;
+  currency: string;
+  charges: QuotationPdfCharge[];
+  subtotal: number;
+  taxRate: number;
+  taxAmount: number;
+  total: number;
+  notes?: string;
+  companyEmail?: string;
+  companyPhone?: string;
+};
+
 export function generateQuotationPdf({
   quoteNumber,
   createdAt,
@@ -30,30 +55,7 @@ export function generateQuotationPdf({
   notes,
   companyEmail,
   companyPhone,
-}: {
-  quoteNumber: string;
-  createdAt: Date | string;
-  customerName: string;
-  customerCompany?: string;
-  customerEmail?: string;
-  customerPhone?: string;
-  origin: string;
-  destination: string;
-  serviceType: string;
-  weightKg: number;
-  quantity: number;
-  dimensions?: string;
-  validUntil?: string;
-  currency: string;
-  charges: QuotationPdfCharge[];
-  subtotal: number;
-  taxRate: number;
-  taxAmount: number;
-  total: number;
-  notes?: string;
-  companyEmail?: string;
-  companyPhone?: string;
-}): Promise<Buffer> {
+}: QuotationPdfFields): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: "A4", margin: 50 });
     const chunks: Buffer[] = [];
