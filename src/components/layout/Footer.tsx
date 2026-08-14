@@ -28,6 +28,7 @@ const linkGroups = [
     links: [
       { label: "Track Shipment", href: "/track-shipment" },
       { label: "Get a Quote", href: "/quote" },
+      { label: "Reviews", href: "/reviews" },
       { label: "Privacy Policy", href: "/privacy-policy" },
       { label: "Terms & Conditions", href: "/terms-conditions" },
     ],

@@ -91,7 +91,11 @@ export default async function BlogPostPage({
       <Section>
         <Container>
           <div className="mx-auto max-w-3xl">
-            <p className="text-lg leading-relaxed text-foreground/80">{post.content}</p>
+            {post.content.split("\n\n").map((paragraph, i) => (
+              <p key={i} className="text-lg leading-relaxed text-foreground/80 [&+&]:mt-5">
+                {paragraph}
+              </p>
+            ))}
             <div className="mt-10">
               <Button href="/blog" variant="ghost" icon={ArrowLeft} iconPosition="left">
                 Back to Blog

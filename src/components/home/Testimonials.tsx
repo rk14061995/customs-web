@@ -55,9 +55,11 @@ export default function Testimonials({ testimonials }: { testimonials: Testimoni
                 />
                 <div className="text-left">
                   <p className="font-heading text-sm font-semibold text-white">{current.name}</p>
-                  <p className="text-xs text-white/50">
-                    {current.role}, {current.company}
-                  </p>
+                  {(current.role || current.company) && (
+                    <p className="text-xs text-white/50">
+                      {[current.role, current.company].filter(Boolean).join(", ")}
+                    </p>
+                  )}
                 </div>
               </div>
             </motion.div>

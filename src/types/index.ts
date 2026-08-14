@@ -11,8 +11,8 @@ export interface Service {
 export interface Testimonial {
   _id: string;
   name: string;
-  company: string;
-  role: string;
+  company?: string;
+  role?: string;
   quote: string;
   rating: number;
   avatar: string;
