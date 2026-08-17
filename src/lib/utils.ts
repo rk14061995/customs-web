@@ -23,6 +23,10 @@ export function formatDate(date: string | Date, timeZone?: string) {
   });
 }
 
+export function formatCurrency(amount: number, currency: string = "INR") {
+  return `${currency} ${amount.toLocaleString("en-IN")}`;
+}
+
 /**
  * Date + time. In the browser this naturally renders in the viewer's own
  * local timezone (no timeZone passed = runtime default). Pass an explicit

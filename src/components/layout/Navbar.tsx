@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Menu, X, ChevronDown, Search, PackageSearch, Send } from "lucide-react";
+import { Menu, X, ChevronDown, Search, PackageSearch, Send, UserCircle } from "lucide-react";
 import Container from "@/components/ui/Container";
 import Button from "@/components/ui/Button";
 import ThemeToggle from "@/components/shared/ThemeToggle";
@@ -148,6 +148,13 @@ export default function Navbar({
               <Search className="size-[18px]" />
             </button>
             <ThemeToggle />
+            <Link
+              href="/account"
+              aria-label="My Account"
+              className="hidden size-9 items-center justify-center rounded-full text-foreground/70 transition-colors hover:bg-navy/5 hover:text-navy dark:hover:bg-white/10 dark:hover:text-white sm:flex"
+            >
+              <UserCircle className="size-[18px]" />
+            </Link>
             <Button href="/track-shipment" variant="ghost" size="sm" icon={PackageSearch} iconPosition="left" className="hidden md:inline-flex">
               Track
             </Button>
@@ -209,6 +216,9 @@ export default function Navbar({
               </Link>
               <Link href="/faq" className="rounded-xl px-4 py-3 text-sm font-medium text-foreground/80 hover:bg-navy/5 dark:hover:bg-white/10">
                 FAQ
+              </Link>
+              <Link href="/account" className="rounded-xl px-4 py-3 text-sm font-medium text-foreground/80 hover:bg-navy/5 dark:hover:bg-white/10">
+                My Account
               </Link>
               <div className="mt-2 flex gap-2 px-4">
                 <Button href="/quote" className="w-full">

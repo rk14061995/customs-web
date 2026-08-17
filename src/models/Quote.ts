@@ -1,4 +1,4 @@
-import { Schema, model, models, type Document } from "mongoose";
+import { Schema, model, models, Types, type Document } from "mongoose";
 
 export interface IQuote extends Document {
   name: string;
@@ -13,6 +13,9 @@ export interface IQuote extends Document {
   pickupDate: string;
   message?: string;
   status: "new" | "contacted" | "quoted" | "closed";
+  /** Set when this request was submitted by a logged-in customer from their dashboard,
+   *  rather than the anonymous public quote form. */
+  customer?: Types.ObjectId;
   createdAt: Date;
 }
 
@@ -30,6 +33,7 @@ const QuoteSchema = new Schema<IQuote>(
     pickupDate: { type: String, required: true },
     message: { type: String },
     status: { type: String, enum: ["new", "contacted", "quoted", "closed"], default: "new" },
+    customer: { type: Schema.Types.ObjectId, ref: "Customer" },
   },
   { timestamps: true }
 );

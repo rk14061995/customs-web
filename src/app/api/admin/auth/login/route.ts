@@ -10,7 +10,7 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-function issueSessionResponse(session: AdminSession) {
+function issueSessionResponse(session: Omit<AdminSession, "kind">) {
   const token = signSession(session);
   const res = NextResponse.json({ success: true });
   res.cookies.set(AUTH_COOKIE_NAME, token, {

@@ -7,6 +7,7 @@ export const PAYMENT_METHODS = [
   "UPI",
   "Cheque",
   "Online",
+  "Wallet",
   "Other",
 ] as const;
 

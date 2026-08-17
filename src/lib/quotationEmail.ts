@@ -73,6 +73,12 @@ export const buildQuotationPdfFieldsById = (id: string): Promise<QuotationPdfRes
   buildQuotationPdfFields({ _id: id });
 export const buildQuotationPdfFieldsByToken = (token: string): Promise<QuotationPdfResult> =>
   buildQuotationPdfFields({ shareToken: token });
+/** Same as buildQuotationPdfFieldsById, but scoped to a specific customer — for the
+ * customer dashboard, where the id alone must not be enough to read another customer's PDF. */
+export const buildQuotationPdfFieldsByIdForCustomer = (
+  id: string,
+  customerId: string
+): Promise<QuotationPdfResult> => buildQuotationPdfFields({ _id: id, customer: customerId });
 
 type QuotationEmailResult =
   | { error: string; status: 404 | 400 }

@@ -2,7 +2,11 @@ import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import dbConnect from "@/lib/dbConnect";
 import Payment from "@/models/Payment";
+import Customer from "@/models/Customer";
+import WalletTransaction from "@/models/WalletTransaction";
 import { recomputeShipmentPaymentStatus } from "@/lib/shipmentUtils";
+
+const WALLET_TOPUP_PREFIX = "WALLETTOPUP-";
 
 // Cashfree signs webhooks as base64(HMAC-SHA256(timestamp + rawBody, secret)),
 // sent as `x-webhook-signature` / `x-webhook-timestamp` headers. Verify against
@@ -43,6 +47,35 @@ export async function POST(req: NextRequest) {
   }
 
   await dbConnect();
+
+  if (linkId.startsWith(WALLET_TOPUP_PREFIX)) {
+    const transaction = await WalletTransaction.findOne({ cashfreeLinkId: linkId });
+    if (!transaction) {
+      // Nothing to reconcile against — acknowledge so Cashfree doesn't retry.
+      return NextResponse.json({ received: true });
+    }
+    // Idempotent: a retried/duplicate webhook delivery must not credit the wallet twice.
+    if (transaction.status === "completed") {
+      return NextResponse.json({ received: true });
+    }
+
+    if (linkStatus === "PAID") {
+      const updatedCustomer = await Customer.findByIdAndUpdate(
+        transaction.customer,
+        { $inc: { walletBalance: transaction.amount } },
+        { new: true }
+      );
+      transaction.status = "completed";
+      transaction.balanceAfter = updatedCustomer?.walletBalance;
+      await transaction.save();
+    } else if (linkStatus === "EXPIRED" || linkStatus === "CANCELLED") {
+      transaction.status = "failed";
+      await transaction.save();
+    }
+
+    return NextResponse.json({ received: true });
+  }
+
   const payment = await Payment.findOne({ paymentLinkId: linkId });
   if (!payment) {
     // Nothing to reconcile against — acknowledge so Cashfree doesn't retry.

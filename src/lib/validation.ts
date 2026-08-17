@@ -35,3 +35,47 @@ export const reviewSchema = z.object({
 });
 
 export type ReviewFormValues = z.infer<typeof reviewSchema>;
+
+export const customerSignupSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  company: z.string().optional(),
+  email: z.email("Enter a valid email address"),
+  phone: z.string().min(7, "Enter a valid phone number"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+export type CustomerSignupFormValues = z.infer<typeof customerSignupSchema>;
+
+export const customerLoginSchema = z.object({
+  email: z.email("Enter a valid email address"),
+  password: z.string().min(1, "Password is required"),
+});
+
+export const customerPasswordChangeSchema = z.object({
+  currentPassword: z.string().min(1, "Current password is required"),
+  newPassword: z.string().min(8, "New password must be at least 8 characters"),
+});
+
+export type CustomerPasswordChangeFormValues = z.infer<typeof customerPasswordChangeSchema>;
+
+export const customerProfileSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
+  company: z.string().optional(),
+  phone: z.string().min(7, "Enter a valid phone number"),
+  address: z.string().optional(),
+  gstNumber: z.string().optional(),
+  stateName: z.string().optional(),
+  stateCode: z.string().optional(),
+});
+
+export type CustomerProfileFormValues = z.infer<typeof customerProfileSchema>;
+
+// Booking requests reuse the public quote fields, minus name/email/phone which
+// come from the logged-in customer's session/profile instead of a form field.
+export const bookingRequestSchema = quoteSchema.omit({ name: true, email: true, phone: true });
+
+export type BookingRequestFormValues = z.infer<typeof bookingRequestSchema>;
+
+export const walletTopupSchema = z.object({
+  amount: z.number().min(100, "Minimum top-up is ₹100").max(500000, "Maximum top-up is ₹5,00,000"),
+});

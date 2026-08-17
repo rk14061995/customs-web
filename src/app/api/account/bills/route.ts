@@ -1,0 +1,13 @@
+import { NextResponse } from "next/server";
+import dbConnect from "@/lib/dbConnect";
+import Bill from "@/models/Bill";
+import { getCustomerSession } from "@/lib/customerAuth";
+
+export async function GET() {
+  const session = await getCustomerSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  await dbConnect();
+  const bills = await Bill.find({ customer: session.customerId }).sort({ createdAt: -1 }).lean();
+  return NextResponse.json(bills);
+}

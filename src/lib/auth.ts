@@ -9,19 +9,26 @@ if (!JWT_SECRET) {
 }
 
 export type AdminSession = {
+  kind: "admin";
   userId: string;
   email: string;
   name: string;
   role: string;
 };
 
-export function signSession(session: AdminSession) {
-  return jwt.sign(session, JWT_SECRET as string, { expiresIn: "7d" });
+export function signSession(session: Omit<AdminSession, "kind">) {
+  const payload: AdminSession = { ...session, kind: "admin" };
+  return jwt.sign(payload, JWT_SECRET as string, { expiresIn: "7d" });
 }
 
 export function verifySession(token: string): AdminSession | null {
   try {
-    return jwt.verify(token, JWT_SECRET as string) as AdminSession;
+    const decoded = jwt.verify(token, JWT_SECRET as string) as AdminSession;
+    // JWT_SECRET is shared with customer sessions (src/lib/customerAuth.ts) — the
+    // `kind` discriminator stops a customer_token from being replayed here under
+    // a renamed cookie (and vice versa).
+    if (decoded.kind !== "admin") return null;
+    return decoded;
   } catch {
     return null;
   }
@@ -37,6 +44,7 @@ export function isDevAuthBypassEnabled() {
 }
 
 const DEV_BYPASS_SESSION: AdminSession = {
+  kind: "admin",
   userId: "dev-bypass",
   email: "dev@local",
   name: "Dev (auth bypassed)",

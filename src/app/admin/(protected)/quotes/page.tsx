@@ -13,6 +13,7 @@ export default function AdminQuotesPage() {
         { key: "name", label: "Name" },
         { key: "email", label: "Email" },
         { key: "shipmentType", label: "Type" },
+        { key: "customerLabel", label: "Account" },
       ]}
       detailFields={[
         { key: "name", label: "Name" },
