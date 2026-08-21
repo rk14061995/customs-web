@@ -101,7 +101,8 @@ export function generateBillPdf({
   customerAddress,
   customerGstin,
   customerState,
-  shipmentTrackingNumber,
+  dispatchedThrough,
+  destination,
   currency,
   items,
   subtotal,
@@ -121,6 +122,7 @@ export function generateBillPdf({
   companyState,
   jurisdiction,
   bank,
+  declaration,
 }: {
   billNumber: string;
   billDate: string;
@@ -132,7 +134,9 @@ export function generateBillPdf({
   customerAddress?: string;
   customerGstin?: string;
   customerState?: string;
-  shipmentTrackingNumber?: string;
+  /** Carrier name (and AWB, if known) the shipment went out through, e.g. "UPS · 1Z95623R6753982075". */
+  dispatchedThrough?: string;
+  destination?: string;
   currency: string;
   items: BillPdfItem[];
   subtotal: number;
@@ -158,6 +162,9 @@ export function generateBillPdf({
     branch?: string;
     ifsc?: string;
   };
+  /** Admin-editable declaration text (Settings.billDeclaration). Falls back to the default
+   *  "A/C payee cheque" + "18% interest" wording, with the company name filled in, when unset. */
+  declaration?: string;
 }): Promise<Buffer> {
   /**
    * Draws the full invoice onto `doc` and returns the final y. `extraStretch` is
@@ -223,7 +230,7 @@ export function generateBillPdf({
       ["Reference No. & Date.", undefined, "Other References", `Status: ${status.toUpperCase()}`],
       ["Buyer's Order No.", undefined, "Dated", undefined],
       ["Dispatch Doc No.", undefined, "Delivery Note Date", undefined],
-      ["Dispatched through", shipmentTrackingNumber, "Destination", undefined],
+      ["Dispatched through", dispatchedThrough, "Destination", destination],
     ];
     metaRows.forEach(([label1, value1, label2, value2], i) => {
       const rowTop = outerTop + i * rowH;
@@ -444,8 +451,12 @@ export function generateBillPdf({
     const bankColX = left + fullWidth * 0.55;
     const declTop = y;
     doc.font("Helvetica-Bold").fontSize(8).fillColor(GRAY).text("Declaration", left + 8, y + 6);
+    const declarationText =
+      declaration && declaration.trim()
+        ? declaration
+        : `*ALL PAYMENT TO BE MADE BY A/C PAYEE CHEQUE IN FAVOUR OF "${resolvedCompanyName.toUpperCase()}".\n*INTEREST RATE @18%P.A ON DELAYED PAYMENT.`;
     doc.font("Helvetica").fontSize(8).fillColor(DARK).text(
-      `*ALL PAYMENT TO BE MADE BY A/C PAYEE CHEQUE IN FAVOUR OF "${resolvedCompanyName.toUpperCase()}".\n*INTEREST RATE @18%P.A ON DELAYED PAYMENT.`,
+      declarationText,
       left + 8,
       doc.y + 3,
       { width: bankColX - left - 20 }

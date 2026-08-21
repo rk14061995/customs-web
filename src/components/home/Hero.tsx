@@ -21,9 +21,11 @@ export default function Hero({
           alt="Container ship and cargo plane representing global logistics"
           fill
           priority
-          className="object-cover opacity-30"
+          className="object-cover opacity-70"
         />
-        <div className="absolute inset-0 bg-gradient-to-br from-navy via-navy/95 to-navy-dark" />
+        {/* Flat scrim (not a gradient) so contrast for the centered text block stays even
+            top-to-bottom, while still letting the photo read as an actual photo. */}
+        <div className="absolute inset-0 bg-navy/60" />
         <div className="absolute -right-32 -top-32 size-96 rounded-full bg-orange/20 blur-3xl" />
         <div className="absolute -bottom-32 -left-32 size-96 rounded-full bg-navy-dark/40 blur-3xl" />
       </div>

@@ -30,6 +30,7 @@ export const siteConfig = {
   bankAccountNumber: "",
   bankBranch: "",
   bankIfsc: "",
+  billDeclaration: "",
   social: {
     facebook: "https://facebook.com",
     twitter: "https://twitter.com",

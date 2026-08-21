@@ -70,15 +70,6 @@ function sameItem(a: BillItem, b: BillItem) {
   );
 }
 
-/** Same random-suffixed scheme as `generateBillNumber` in shipmentUtils — duplicated here since that
- *  module also imports Mongoose models and can't be pulled into a client bundle. */
-function generatePendingBillNumber() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let suffix = "";
-  for (let i = 0; i < 3; i++) suffix += chars[Math.floor(Math.random() * chars.length)];
-  return `BILL-${Date.now().toString(36).toUpperCase()}${suffix}`;
-}
-
 /** Formats a date Tally-style, e.g. "27.07.26". */
 function formatShortDate(date?: string) {
   if (!date) return "";
@@ -189,14 +180,21 @@ export default function BillsManager() {
 
   const formTotals = useMemo(() => computeBillTotals(formValues.items, formValues.taxRate), [formValues.items, formValues.taxRate]);
 
-  const openCreate = () => {
+  const openCreate = async () => {
     setEditing(null);
-    // Pre-generate the bill number so it can be quoted inside the item description
-    // (see buildShipmentItem) before the bill is actually saved; the server uses
-    // this same value instead of minting its own, so it stays consistent.
-    setFormValues({ ...emptyForm, billNumber: generatePendingBillNumber() });
     setAutoShipmentItem(null);
     setError("");
+    // Reserve the next sequential bill number up front so it can be quoted inside the item
+    // description (see buildShipmentItem) before the bill is actually saved; the server creates
+    // the bill with this same value instead of minting its own, so it stays consistent.
+    let billNumber = "";
+    try {
+      const res = await fetch("/api/admin/bills/next-number");
+      if (res.ok) billNumber = (await res.json()).billNumber ?? "";
+    } catch {
+      // fall through with an empty billNumber — the server will mint one on save if needed
+    }
+    setFormValues({ ...emptyForm, billNumber });
     setModalOpen(true);
   };
 

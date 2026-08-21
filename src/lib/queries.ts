@@ -180,6 +180,8 @@ export const getSettings = cache(async () => {
     bankAccountNumber?: string;
     bankBranch?: string;
     bankIfsc?: string;
+    billDeclaration?: string;
+    nextBillNumber?: number;
     social: { facebook?: string; twitter?: string; linkedin?: string; instagram?: string };
   } | null>(doc);
 });

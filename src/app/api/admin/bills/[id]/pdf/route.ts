@@ -3,8 +3,10 @@ import dbConnect from "@/lib/dbConnect";
 import Bill from "@/models/Bill";
 import "@/models/Customer";
 import "@/models/Shipment";
+import "@/models/Carrier";
 import type { ICustomer } from "@/models/Customer";
 import type { IShipment } from "@/models/Shipment";
+import type { ICarrier } from "@/models/Carrier";
 import { getAdminSession } from "@/lib/auth";
 import { generateBillPdf } from "@/lib/billPdf";
 import { getSettings } from "@/lib/queries";
@@ -22,8 +24,8 @@ export async function GET(
 
   const bill = await Bill.findById(id).populate<{
     customer: ICustomer;
-    shipment: IShipment | null;
-  }>(["customer", "shipment"]);
+    shipment: (IShipment & { carrier: ICarrier | null }) | null;
+  }>(["customer", { path: "shipment", populate: { path: "carrier" } }]);
   if (!bill) return NextResponse.json({ error: "Bill not found" }, { status: 404 });
 
   const settings = await getSettings();
@@ -32,6 +34,10 @@ export async function GET(
     ? `${resolved.phone} / ${resolved.alternatePhone}`
     : resolved.phone;
   const companyName = "siteName" in resolved ? resolved.siteName : resolved.name;
+  const dispatchedThrough = bill.shipment
+    ? [bill.shipment.carrier?.name, bill.shipment.carrierTrackingNumber].filter(Boolean).join(" · ") ||
+      bill.shipment.trackingNumber
+    : undefined;
 
   const pdf = await generateBillPdf({
     billNumber: bill.billNumber,
@@ -44,7 +50,8 @@ export async function GET(
     customerAddress: bill.customer?.address,
     customerGstin: bill.customer?.gstNumber,
     customerState: bill.customer?.stateName,
-    shipmentTrackingNumber: bill.shipment?.trackingNumber,
+    dispatchedThrough,
+    destination: bill.shipment?.destination,
     currency: bill.currency,
     items: bill.items,
     subtotal: bill.subtotal,
@@ -70,6 +77,7 @@ export async function GET(
       branch: resolved.bankBranch,
       ifsc: resolved.bankIfsc,
     },
+    declaration: resolved.billDeclaration,
   });
 
   return new NextResponse(new Uint8Array(pdf), {

@@ -27,8 +27,13 @@ type SettingsData = {
   bankAccountNumber?: string;
   bankBranch?: string;
   bankIfsc?: string;
+  billDeclaration?: string;
+  nextBillNumber?: number;
   social: { facebook?: string; twitter?: string; linkedin?: string; instagram?: string };
 };
+
+const DEFAULT_DECLARATION_PLACEHOLDER =
+  '*ALL PAYMENT TO BE MADE BY A/C PAYEE CHEQUE IN FAVOUR OF "RANA FORWARDER".\n*INTEREST RATE @18%P.A ON DELAYED PAYMENT.';
 
 const inputClass =
   "w-full rounded-xl border border-border-subtle bg-background px-4 py-2.5 text-sm outline-none focus:border-navy";
@@ -56,6 +61,8 @@ const emptySettings: SettingsData = {
   bankAccountNumber: "",
   bankBranch: "",
   bankIfsc: "",
+  billDeclaration: "",
+  nextBillNumber: 301,
   social: {},
 };
 
@@ -189,6 +196,33 @@ export default function AdminSettingsPage() {
             <div>
               <label className="mb-1.5 block text-xs text-foreground/60">IFSC Code</label>
               <input value={data.bankIfsc ?? ""} onChange={(e) => setData({ ...data, bankIfsc: e.target.value })} className={inputClass} />
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-1.5 text-sm font-medium text-foreground">Bill Invoice Settings</p>
+          <div className="grid grid-cols-1 gap-4">
+            <div>
+              <label className="mb-1.5 block text-xs text-foreground/60">Declaration (shown on Bill PDFs)</label>
+              <textarea
+                rows={3}
+                value={data.billDeclaration ?? ""}
+                onChange={(e) => setData({ ...data, billDeclaration: e.target.value })}
+                placeholder={DEFAULT_DECLARATION_PLACEHOLDER}
+                className={inputClass}
+              />
+              <p className="mt-1 text-xs text-foreground/50">Leave blank to use the default wording shown above as a placeholder. Use \n line breaks with a leading * for each line, as shown.</p>
+            </div>
+            <div className="max-w-xs">
+              <label className="mb-1.5 block text-xs text-foreground/60">Next Invoice No.</label>
+              <input
+                type="number"
+                value={data.nextBillNumber ?? 301}
+                onChange={(e) => setData({ ...data, nextBillNumber: Number(e.target.value) })}
+                className={inputClass}
+              />
+              <p className="mt-1 text-xs text-foreground/50">The invoice number that will be assigned to the next new bill. Increments automatically after that.</p>
             </div>
           </div>
         </div>

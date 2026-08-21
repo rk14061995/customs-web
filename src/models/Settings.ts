@@ -24,6 +24,8 @@ export interface ISettings extends Document {
   bankAccountNumber?: string;
   bankBranch?: string;
   bankIfsc?: string;
+  billDeclaration?: string;
+  nextBillNumber: number;
   social: {
     facebook?: string;
     twitter?: string;
@@ -58,6 +60,8 @@ const SettingsSchema = new Schema<ISettings>(
     bankAccountNumber: { type: String },
     bankBranch: { type: String },
     bankIfsc: { type: String },
+    billDeclaration: { type: String },
+    nextBillNumber: { type: Number, default: 301 },
     social: {
       facebook: String,
       twitter: String,
