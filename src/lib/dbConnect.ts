@@ -24,6 +24,16 @@ export default async function dbConnect() {
   if (!cache.promise) {
     cache.promise = mongoose.connect(MONGODB_URI as string, {
       bufferCommands: false,
+      // Tuned for serverless (Vercel): each cold-started function only ever needs
+      // a handful of connections at once, so a small pool avoids paying for
+      // connections that will just sit idle. A short server-selection timeout
+      // means a genuinely unreachable Atlas cluster fails fast instead of
+      // hanging the loader for the driver's 30s default. `family: 4` skips the
+      // IPv6-then-fallback-to-IPv4 "happy eyeballs" probing that otherwise adds
+      // a noticeable delay to the very first connection on some cloud networks.
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 8000,
+      family: 4,
     });
   }
 
